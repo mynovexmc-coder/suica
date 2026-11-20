@@ -1,0 +1,2567 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>スイカゲーム - カスタム物理＆未来予測エディション</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-cream: #FFF7E2;
+      --bg-warm: #FDE7B4;
+      --wood-dark: #8B5A2B;
+      --wood-mid: #C68B59;
+      --wood-light: #E8B87D;
+      --panel-bg: rgba(255, 252, 242, 0.94);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    input, select, textarea {
+      user-select: text;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', 'Yu Gothic', sans-serif;
+      background: radial-gradient(circle at 20% 15%, #FFFDF5 0%, #FFEBC2 55%, #FAD58D 100%);
+      color: #5C3A1B;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .wood-card {
+      background: var(--panel-bg);
+      border: 3px solid #D8A468;
+      border-radius: 22px;
+      box-shadow: 0 8px 20px rgba(139, 90, 43, 0.14), inset 0 2px 0 rgba(255, 255, 255, 0.9);
+    }
+
+    .wood-badge {
+      background: linear-gradient(180deg, #FFE09E 0%, #F7BD63 100%);
+      border: 2px solid #C88332;
+      color: #5C3A1B;
+      box-shadow: 0 3px 0 #B57022;
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, #FF934F 0%, #FF6B2B 100%);
+      border: 2px solid #C94812;
+      color: #fff;
+      box-shadow: 0 4px 0 #B83E0C, 0 6px 12px rgba(201, 72, 18, 0.25);
+      transition: transform 0.08s ease, box-shadow 0.08s ease;
+    }
+    .btn-primary:hover { filter: brightness(1.05); }
+    .btn-primary:active { transform: translateY(3px); box-shadow: 0 1px 0 #B83E0C; }
+
+    .btn-soft {
+      background: linear-gradient(180deg, #FFFDF7 0%, #F6E4C1 100%);
+      border: 2px solid #C9965B;
+      color: #5C3A1B;
+      box-shadow: 0 3px 0 #B07C43;
+      transition: transform 0.08s ease, box-shadow 0.08s ease;
+    }
+    .btn-soft:hover { filter: brightness(1.03); }
+    .btn-soft:active { transform: translateY(2px); box-shadow: 0 1px 0 #B07C43; }
+
+    #game-canvas {
+      touch-action: none;
+      display: block;
+      cursor: crosshair;
+    }
+
+    @keyframes floatSlow {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-4px); }
+    }
+    .float-slow { animation: floatSlow 3s ease-in-out infinite; }
+
+    @keyframes popIn {
+      0% { transform: scale(0.82); opacity: 0; }
+      70% { transform: scale(1.04); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .pop-in { animation: popIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center p-2 sm:p-4">
+
+  <!-- Header -->
+  <header class="w-full max-w-5xl flex flex-wrap items-center justify-between gap-2 mb-2 sm:mb-3 px-2">
+    <div class="flex items-center gap-2">
+      <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-emerald-400 to-green-700 border-2 border-green-900 flex items-center justify-center shadow-md text-lg sm:text-xl">
+        🍉
+      </div>
+      <div>
+        <h1 class="text-lg sm:text-2xl font-extrabold tracking-tight text-[#5C3A1B] leading-none">
+          スイカゲーム
+        </h1>
+        <p class="text-[11px] sm:text-xs font-bold text-[#9C6B3B] mt-0.5">
+          面積重さ物理＆全フルーツ未来予測・自由カスタム対応
+        </p>
+      </div>
+    </div>
+
+    <div class="flex items-center flex-wrap gap-1.5 sm:gap-2">
+      <button id="ai-btn" type="button" class="btn-soft px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-1" aria-label="AIモード切替">
+        <span id="ai-icon">🤖</span>
+        <span id="ai-label">AI OFF</span>
+      </button>
+      <button id="custom-btn" type="button" class="btn-soft px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-1" aria-label="カスタマイズ">
+        <span>⚙️</span>
+        <span>カスタム</span>
+      </button>
+      <button id="bgm-btn" type="button" class="btn-soft px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-1" aria-label="壮大BGM切替">
+        <span id="bgm-icon">🎵</span>
+        <span id="bgm-label" class="hidden sm:inline">壮大BGM</span>
+      </button>
+      <button id="mute-btn" type="button" class="btn-soft px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-1.5" aria-label="サウンド切替">
+        <span id="mute-icon">🔊</span>
+        <span id="mute-label" class="hidden sm:inline">音あり</span>
+      </button>
+      <button id="help-btn" type="button" class="btn-soft px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold" aria-label="遊び方">
+        ？ 遊び方
+      </button>
+      <button id="restart-btn" type="button" class="btn-primary px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold">
+        ↻ やり直す
+      </button>
+    </div>
+  </header>
+
+  <!-- Main 3-Column Layout -->
+  <main class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)_248px] gap-3 items-start justify-items-center">
+
+    <!-- Left Panel: Score & Best Score & Mobile Next -->
+    <section class="w-full max-w-[440px] lg:max-w-none flex flex-row lg:flex-col gap-2.5 order-1">
+      <div class="wood-card flex-1 p-3 sm:p-4 text-center">
+        <div class="text-[11px] sm:text-xs font-extrabold uppercase tracking-wider text-[#9C6B3B]">スコア</div>
+        <div id="score-val" class="text-2xl sm:text-4xl font-extrabold text-[#5C3A1B] tabular-nums mt-0.5">0</div>
+        <div id="combo-badge" class="h-5 mt-1 text-xs font-extrabold text-[#FF5722] opacity-0 transition-opacity">
+          2コンボ！
+        </div>
+      </div>
+
+      <div class="wood-card flex-1 p-3 sm:p-4 text-center">
+        <div class="text-[11px] sm:text-xs font-extrabold uppercase tracking-wider text-[#9C6B3B]">ベストスコア</div>
+        <div id="best-val" class="text-xl sm:text-3xl font-extrabold text-[#C8641E] tabular-nums mt-0.5">0</div>
+        <div class="text-[11px] font-bold text-[#9C6B3B] mt-1">最大: <span id="max-fruit-name">なし</span></div>
+      </div>
+
+      <!-- Mobile Next Preview -->
+      <div class="wood-card lg:hidden p-2.5 flex flex-col items-center justify-center min-w-[92px]">
+        <div class="text-[11px] font-extrabold text-[#9C6B3B] mb-1">ネクスト</div>
+        <canvas id="next-canvas-mobile" width="56" height="56" class="block"></canvas>
+      </div>
+    </section>
+
+    <!-- Center: Game Container -->
+    <section class="w-full flex flex-col items-center order-2">
+      <div id="board-wrapper" class="relative w-full max-w-[420px] rounded-[26px] p-2 sm:p-2.5 bg-gradient-to-b from-[#DFAC6E] to-[#B87D42] border-4 border-[#8B5A2B] shadow-2xl">
+        <div id="danger-banner" class="hidden absolute top-3 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full bg-red-600/90 text-white text-xs font-extrabold shadow-lg animate-pulse pointer-events-none">
+          ⚠️ あふれそう！
+        </div>
+        <div id="ai-status-pill" class="hidden absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full bg-emerald-700/90 text-white text-[11px] font-extrabold shadow-md whitespace-nowrap pointer-events-none">
+          🤖 AI解析中...
+        </div>
+
+        <div id="canvas-holder" class="relative w-full aspect-[3/4] rounded-[18px] overflow-hidden bg-[#FFF9E8] border-2 border-[#A66E38] shadow-inner">
+          <canvas id="game-canvas"></canvas>
+
+          <!-- Game Over Overlay -->
+          <div id="gameover-modal" class="hidden absolute inset-0 z-30 bg-[#3B230E]/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="wood-card pop-in w-full max-w-[310px] p-5 text-center">
+              <div class="inline-block wood-badge px-4 py-1 rounded-full text-xs font-extrabold mb-2">
+                GAME OVER
+              </div>
+              <h2 class="text-2xl font-extrabold text-[#5C3A1B] mb-1">おしまい！</h2>
+              <div id="new-record-tag" class="hidden inline-block bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-extrabold px-3 py-0.5 rounded-full mb-2 shadow">
+                🎉 NEW RECORD!
+              </div>
+              <div class="bg-[#FFF4DA] border-2 border-[#E4BE86] rounded-2xl p-3 my-3 space-y-1.5">
+                <div class="flex justify-between items-center text-sm font-bold">
+                  <span class="text-[#8B5A2B]">今回のスコア</span>
+                  <span id="final-score" class="text-xl font-extrabold text-[#5C3A1B] tabular-nums">0</span>
+                </div>
+                <div class="flex justify-between items-center text-xs font-bold">
+                  <span class="text-[#8B5A2B]">ベストスコア</span>
+                  <span id="final-best" class="text-sm font-extrabold text-[#C8641E] tabular-nums">0</span>
+                </div>
+                <div class="flex justify-between items-center text-xs font-bold">
+                  <span class="text-[#8B5A2B]">一番大きいアイテム</span>
+                  <span id="final-max-fruit" class="font-extrabold text-[#5C3A1B]">さくらんぼ</span>
+                </div>
+                <div class="flex justify-between items-center text-xs font-bold">
+                  <span class="text-[#8B5A2B]">シンカ回数</span>
+                  <span id="final-merges" class="font-extrabold text-[#5C3A1B] tabular-nums">0回</span>
+                </div>
+              </div>
+              <button id="modal-restart-btn" type="button" class="btn-primary w-full py-2.5 rounded-full text-base font-extrabold">
+                もういちど遊ぶ
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Touch / Keyboard Hint & Quick Move Buttons -->
+      <div class="w-full max-w-[420px] mt-2 flex items-center justify-between gap-2 px-1">
+        <div class="flex items-center gap-1.5 sm:hidden">
+          <button id="btn-left" type="button" class="btn-soft w-11 h-9 rounded-xl font-extrabold text-base" aria-label="左へ">◀</button>
+          <button id="btn-drop" type="button" class="btn-primary px-4 h-9 rounded-xl font-extrabold text-sm" aria-label="落とす">おとす</button>
+          <button id="btn-right" type="button" class="btn-soft w-11 h-9 rounded-xl font-extrabold text-base" aria-label="右へ">▶</button>
+        </div>
+        <p class="text-[11px] sm:text-xs font-bold text-[#8B5A2B] text-center w-full hidden sm:block">
+          長押し/ドラッグで全フルーツの未来＆シンカ予測 ・ 離して落下（← → / Space）
+        </p>
+      </div>
+    </section>
+
+    <!-- Right Panel: Next Fruit & Evolution Ring -->
+    <section class="w-full max-w-[440px] lg:max-w-none flex flex-col gap-2.5 order-3">
+      <div class="wood-card hidden lg:flex flex-col items-center p-4">
+        <div class="text-xs font-extrabold uppercase tracking-wider text-[#9C6B3B] mb-2">ネクスト</div>
+        <div class="w-24 h-24 rounded-full bg-[#FFF4DA] border-2 border-[#E4BE86] flex items-center justify-center shadow-inner">
+          <canvas id="next-canvas-desktop" width="84" height="84" class="block float-slow"></canvas>
+        </div>
+        <div id="next-fruit-name" class="text-sm font-extrabold text-[#5C3A1B] mt-2">さくらんぼ</div>
+      </div>
+
+      <!-- Evolution Ring (シンカの輪) -->
+      <div class="wood-card p-3 sm:p-3.5 flex flex-col items-center">
+        <div class="text-xs font-extrabold uppercase tracking-wider text-[#9C6B3B] mb-1">シンカの輪</div>
+        <canvas id="evo-canvas" width="232" height="232" class="block max-w-full h-auto cursor-pointer"></canvas>
+        <p id="evo-caption" class="text-[11px] font-bold text-[#8B5A2B] text-center mt-1 leading-snug">
+          カーソルで詳細・⚙️カスタムで自由変更
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Customize Modal -->
+  <div id="custom-modal" class="hidden fixed inset-0 z-50 bg-[#3B230E]/65 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+    <div class="wood-card pop-in w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between px-4 sm:px-5 py-3 border-b-2 border-[#E4BE86] bg-[#FFF4DA]">
+        <div>
+          <h2 class="text-lg sm:text-xl font-extrabold text-[#5C3A1B]">⚙️ なんでもカスタム設定</h2>
+          <p class="text-[11px] font-bold text-[#8B5A2B]">11段階の絵文字・テキスト・大きさ・当たり判定・物理・アニメを自由に設定！</p>
+        </div>
+        <button id="close-custom-btn" type="button" class="btn-soft w-8 h-8 rounded-full font-extrabold text-sm" aria-label="閉じる">✕</button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-4 sm:p-5 overflow-y-auto space-y-4">
+        <!-- Quick Presets -->
+        <div class="bg-[#FFF4DA] border-2 border-[#E4BE86] rounded-2xl p-3">
+          <div class="text-xs font-extrabold text-[#8B5A2B] mb-2">クイックプリセット（11個一括セット）</div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" data-preset="classic" class="preset-btn btn-soft px-3 py-1.5 rounded-full text-xs font-extrabold">🍉 オリジナル</button>
+            <button type="button" data-preset="emoji" class="preset-btn btn-soft px-3 py-1.5 rounded-full text-xs font-extrabold">😀 絵文字フルーツ</button>
+            <button type="button" data-preset="kanji" class="preset-btn btn-soft px-3 py-1.5 rounded-full text-xs font-extrabold">🔤 漢数字 (一〜終)</button>
+            <button type="button" data-preset="space" class="preset-btn btn-soft px-3 py-1.5 rounded-full text-xs font-extrabold">🪐 宇宙・惑星</button>
+          </div>
+        </div>
+
+        <!-- Global Physics & Animation Controls -->
+        <div class="bg-[#FFF9EB] border-2 border-[#E4BE86] rounded-2xl p-3.5 space-y-3">
+          <div class="text-xs font-extrabold text-[#8B5A2B]">物理演算・アニメーション・予測設定</div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-bold">
+            <label class="flex flex-col gap-1">
+              <span>重力: <strong id="cfg-gravity-val" class="text-[#C8641E]">0.45</strong></span>
+              <input id="cfg-gravity" type="range" min="0.15" max="0.95" step="0.05" class="accent-[#FF6B2B]" />
+            </label>
+            <label class="flex flex-col gap-1">
+              <span>弾みやすさ (反発): <strong id="cfg-restitution-val" class="text-[#C8641E]">0.14</strong></span>
+              <input id="cfg-restitution" type="range" min="0.00" max="0.65" step="0.02" class="accent-[#FF6B2B]" />
+            </label>
+            <label class="flex flex-col gap-1">
+              <span>摩擦 (転がり): <strong id="cfg-friction-val" class="text-[#C8641E]">0.35</strong></span>
+              <input id="cfg-friction" type="range" min="0.05" max="0.80" step="0.05" class="accent-[#FF6B2B]" />
+            </label>
+            <label class="flex flex-col gap-1 sm:col-span-3">
+              <span>次のアイテム出現時間: <strong id="cfg-cooldown-val" class="text-[#C8641E]">0.50秒</strong></span>
+              <input id="cfg-cooldown" type="range" min="0.00" max="1.00" step="0.05" class="accent-[#FF6B2B]" />
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1 text-xs font-bold">
+            <label class="flex items-center gap-2 bg-white/80 border border-[#E4BE86] rounded-xl px-2.5 py-2 cursor-pointer">
+              <input id="cfg-rotation" type="checkbox" class="accent-[#FF6B2B] w-4 h-4" />
+              <span>回転アニメーション</span>
+            </label>
+            <label class="flex items-center gap-2 bg-white/80 border border-[#E4BE86] rounded-xl px-2.5 py-2 cursor-pointer">
+              <input id="cfg-future" type="checkbox" class="accent-[#FF6B2B] w-4 h-4" />
+              <span>全フルーツ未来予測</span>
+            </label>
+            <label class="flex items-center gap-2 bg-white/80 border border-[#E4BE86] rounded-xl px-2.5 py-2 cursor-pointer">
+              <input id="cfg-hitbox-ring" type="checkbox" class="accent-[#FF6B2B] w-4 h-4" />
+              <span>当たり判定枠を表示</span>
+            </label>
+            <label class="flex items-center justify-between gap-1 bg-white/80 border border-[#E4BE86] rounded-xl px-2.5 py-1.5">
+              <span>合体アニメ</span>
+              <select id="cfg-merge-anim" class="bg-transparent font-extrabold text-[#C8641E] outline-none">
+                <option value="bounce">バウンス</option>
+                <option value="spin">回転ポップ</option>
+                <option value="none">なし</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <!-- 11 Tiers Table -->
+        <div>
+          <div class="text-xs font-extrabold text-[#8B5A2B] mb-2">
+            11段階のアイテム設定（テキスト・絵文字・見た目サイズ・当たり判定・重さ密度）
+          </div>
+          <div id="tier-editor-list" class="space-y-2"></div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-t-2 border-[#E4BE86] bg-[#FFF4DA]">
+        <button id="reset-custom-btn" type="button" class="btn-soft px-3.5 py-2 rounded-full text-xs sm:text-sm font-extrabold">
+          初期設定に戻す
+        </button>
+        <div class="flex items-center gap-2">
+          <button id="cancel-custom-btn" type="button" class="btn-soft px-4 py-2 rounded-full text-xs sm:text-sm font-extrabold">
+            キャンセル
+          </button>
+          <button id="apply-custom-btn" type="button" class="btn-primary px-5 py-2 rounded-full text-xs sm:text-sm font-extrabold">
+            保存して適用
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help Modal -->
+  <div id="help-modal" class="hidden fixed inset-0 z-50 bg-[#3B230E]/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="wood-card pop-in w-full max-w-md p-5 relative">
+      <button id="close-help-btn" type="button" class="btn-soft absolute top-3 right-3 w-8 h-8 rounded-full font-extrabold text-sm" aria-label="閉じる">✕</button>
+      <h2 class="text-xl font-extrabold text-[#5C3A1B] mb-3">🍉 スイカゲームの遊び方</h2>
+      <ul class="space-y-2 text-sm font-bold text-[#6E4722] leading-relaxed">
+        <li>・<strong>面積に応じた重さ</strong>と慣性モーメントによるリアルな物理演算でフルーツが転がりぶつかります。</li>
+        <li>・長押し／ドラッグ中は、落とすフルーツの着地だけでなく<strong>箱の中の全フルーツがどう動くか・どうシンカするか</strong>をうっすら未来予測します。</li>
+        <li>・右上の<strong>「⚙️ カスタム」</strong>から、11個の絵文字・文字・大きさ・当たり判定・重さ・アニメ・物理を自由にカスタムできます！</li>
+        <li>・上の<strong>赤い点線</strong>からフルーツがはみ出した状態が続くとゲームオーバーです。</li>
+      </ul>
+      <button id="help-ok-btn" type="button" class="btn-primary w-full mt-4 py-2 rounded-full font-extrabold">
+        わかった！
+      </button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // =========================================================
+      // 1. Default 11-tier Items & Custom Config State
+      // =========================================================
+      const DEFAULT_ITEMS = [
+        { id: 0,  name: 'さくらんぼ', mode: 'art', text: '🍒', radius: 15,  hitboxScale: 1.0, density: 1.0, score: 1,  color: '#E63946', highlight: '#FF8A93', border: '#9E1B24' },
+        { id: 1,  name: 'いちご',     mode: 'art', text: '🍓', radius: 21,  hitboxScale: 1.0, density: 1.0, score: 3,  color: '#FF4D6D', highlight: '#FF9EB0', border: '#B51E3B' },
+        { id: 2,  name: 'ぶどう',     mode: 'art', text: '🍇', radius: 28,  hitboxScale: 1.0, density: 1.0, score: 6,  color: '#7B4AE2', highlight: '#B596FF', border: '#4C25A1' },
+        { id: 3,  name: 'デコポン',   mode: 'art', text: '🍊', radius: 34,  hitboxScale: 1.0, density: 1.0, score: 10, color: '#FF922B', highlight: '#FFC580', border: '#C75E00' },
+        { id: 4,  name: 'かき',       mode: 'art', text: '🍅', radius: 42,  hitboxScale: 1.0, density: 1.0, score: 15, color: '#FF6B1A', highlight: '#FFA970', border: '#B84000' },
+        { id: 5,  name: 'りんご',     mode: 'art', text: '🍎', radius: 51,  hitboxScale: 1.0, density: 1.0, score: 21, color: '#E52521', highlight: '#FF7D7A', border: '#990F0C' },
+        { id: 6,  name: 'なし',       mode: 'art', text: '🍐', radius: 60,  hitboxScale: 1.0, density: 1.0, score: 28, color: '#E6D667', highlight: '#FFF6AD', border: '#A3942D' },
+        { id: 7,  name: 'もも',       mode: 'art', text: '🍑', radius: 70,  hitboxScale: 1.0, density: 1.0, score: 36, color: '#FF9EBB', highlight: '#FFD6E3', border: '#C95E7E' },
+        { id: 8,  name: 'パイナップル', mode: 'art', text: '🍍', radius: 82, hitboxScale: 1.0, density: 1.0, score: 45, color: '#F7C927', highlight: '#FFE985', border: '#B58900' },
+        { id: 9,  name: 'メロン',     mode: 'art', text: '🍈', radius: 96,  hitboxScale: 1.0, density: 1.0, score: 55, color: '#88D458', highlight: '#C4F2A2', border: '#4A8E24' },
+        { id: 10, name: 'スイカ',     mode: 'art', text: '🍉', radius: 112, hitboxScale: 1.0, density: 1.0, score: 66, color: '#2E9E47', highlight: '#6AD47E', border: '#145E25' }
+      ];
+
+      const DEFAULT_CONFIG = {
+        gravity: 0.45,
+        restitution: 0.14,
+        friction: 0.35,
+        dropCooldown: 0.50,
+        rotationEnabled: true,
+        showFutureSim: true,
+        showHitboxRing: false,
+        mergeAnim: 'bounce',
+        items: JSON.parse(JSON.stringify(DEFAULT_ITEMS))
+      };
+
+      const CONFIG_STORAGE_KEY = 'suika_custom_config_v1';
+      const BEST_SCORE_KEY = 'suika_game_best_score_v1';
+
+      let config = loadConfig();
+      let FRUITS = config.items;
+
+      function loadConfig() {
+        try {
+          const raw = localStorage.getItem(CONFIG_STORAGE_KEY);
+          if (!raw) return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+          const parsed = JSON.parse(raw);
+          const merged = Object.assign({}, DEFAULT_CONFIG, parsed);
+          if (!Array.isArray(merged.items) || merged.items.length !== 11) {
+            merged.items = JSON.parse(JSON.stringify(DEFAULT_ITEMS));
+          } else {
+            merged.items = merged.items.map((it, idx) => Object.assign({}, DEFAULT_ITEMS[idx], it, { id: idx }));
+          }
+          return merged;
+        } catch (e) {
+          return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+        }
+      }
+
+      function saveConfig() {
+        try {
+          localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
+        } catch (e) {}
+      }
+
+      function getHitRadius(tier) {
+        const f = FRUITS[tier];
+        return Math.max(8, f.radius * (f.hitboxScale || 1));
+      }
+
+      function getAreaMass(tier) {
+        const hr = getHitRadius(tier);
+        const dens = FRUITS[tier].density || 1.0;
+        // Mass strictly proportional to circle area (pi * r^2 * density)
+        return Math.PI * hr * hr * dens;
+      }
+
+      // Logical board dimensions (3:4 aspect ratio)
+      const BOARD_W = 420;
+      const BOARD_H = 560;
+      const DANGER_Y = 92;
+      const CLOUD_Y = 38;
+      const DROP_Y = 64;
+      const DROP_COOLDOWN_MS = 520;
+      const DANGER_GRACE_MS = 2100;
+      const SUBSTEPS = 12;
+
+      // =========================================================
+      // 2. Web Audio Synthesizer & Epic Symphonic BGM
+      // =========================================================
+      let audioCtx = null;
+      let isMuted = false;
+      let lastThudTime = 0;
+
+      function ensureAudio() {
+        if (!audioCtx) {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          if (Ctx) audioCtx = new Ctx();
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume().catch(() => {});
+        }
+      }
+
+      function playDropSound() {
+        if (isMuted) return;
+        ensureAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(520, now);
+        osc.frequency.exponentialRampToValueAtTime(240, now + 0.11);
+        gain.gain.setValueAtTime(0.16, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.13);
+      }
+
+      function playMergeSound(tier) {
+        if (isMuted) return;
+        ensureAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const baseFreqs = [330, 370, 415, 466, 523, 587, 659, 740, 830, 932, 1046];
+        const freq = baseFreqs[Math.min(tier, baseFreqs.length - 1)];
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq * 0.85, now);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.25, now + 0.14);
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.23);
+
+        if (tier >= 9) {
+          [1, 1.25, 1.5].forEach((mult, idx) => {
+            const o2 = audioCtx.createOscillator();
+            const g2 = audioCtx.createGain();
+            o2.type = 'sine';
+            o2.frequency.setValueAtTime(freq * mult, now + idx * 0.055);
+            g2.gain.setValueAtTime(0.15, now + idx * 0.055);
+            g2.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.055 + 0.28);
+            o2.connect(g2);
+            g2.connect(audioCtx.destination);
+            o2.start(now + idx * 0.055);
+            o2.stop(now + idx * 0.055 + 0.3);
+          });
+        }
+      }
+
+      function playThudSound(speed) {
+        if (isMuted) return;
+        const nowMs = performance.now();
+        if (nowMs - lastThudTime < 85) return;
+        lastThudTime = nowMs;
+        ensureAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const vol = Math.min(0.08, Math.max(0.015, speed * 0.008));
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(65, now + 0.06);
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.065);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.07);
+      }
+
+      function playGameOverSound() {
+        if (isMuted) return;
+        ensureAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        [392, 349, 311, 261].forEach((f, i) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(f, now + i * 0.14);
+          gain.gain.setValueAtTime(0.16, now + i * 0.14);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.14 + 0.24);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + i * 0.14);
+          osc.stop(now + i * 0.14 + 0.25);
+        });
+      }
+
+      // =========================================================
+      // 3. Cute Procedural + Custom Emoji/Text Fruit Renderer
+      // =========================================================
+      function drawFruit(ctx, x, y, angle, tier, scale = 1, alpha = 1, isBlinking = false) {
+        const f = FRUITS[tier];
+        const r = f.radius * scale;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+
+        if (f.mode === 'text') {
+          // Draw raw emoji or text directly without any surrounding circle
+          const label = (f.text || f.name || '?').trim();
+          const len = Array.from(label).length;
+          const fontSize = len <= 1 ? r * 1.65 : len === 2 ? r * 1.05 : Math.max(11, (r * 1.85) / Math.max(2.1, len));
+          ctx.font = `800 ${fontSize}px "M PLUS Rounded 1c", "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.shadowColor = 'rgba(92, 58, 27, 0.22)';
+          ctx.shadowBlur = Math.max(2, r * 0.1);
+          ctx.shadowOffsetY = Math.max(1, r * 0.05);
+          ctx.fillStyle = '#3B230E';
+          ctx.fillText(label, 0, r * 0.05);
+
+          ctx.restore();
+          return;
+        }
+
+        // Classic Vector Art Fruit
+        ctx.beginPath();
+        ctx.arc(0, 2, r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(92, 58, 27, 0.12)';
+        ctx.fill();
+
+        const grad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
+        grad.addColorStop(0, f.highlight);
+        grad.addColorStop(0.55, f.color);
+        grad.addColorStop(1, f.border);
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.lineWidth = Math.max(1.5, r * 0.055);
+        ctx.strokeStyle = f.border;
+        ctx.stroke();
+
+        if (tier === 0) {
+          ctx.beginPath();
+          ctx.moveTo(0, -r * 0.85);
+          ctx.quadraticCurveTo(r * 0.25, -r * 1.45, r * 0.6, -r * 1.35);
+          ctx.strokeStyle = '#4E8C2B';
+          ctx.lineWidth = Math.max(2, r * 0.14);
+          ctx.lineCap = 'round';
+          ctx.stroke();
+        } else if (tier === 1) {
+          ctx.fillStyle = '#FFE699';
+          [[-0.4, -0.15], [0.4, -0.15], [-0.25, 0.3], [0.25, 0.3], [0, 0.55]].forEach(([sx, sy]) => {
+            ctx.beginPath();
+            ctx.ellipse(sx * r, sy * r, r * 0.06, r * 0.09, 0, 0, Math.PI * 2);
+            ctx.fill();
+          });
+          drawLeafCrown(ctx, r, '#43A047', 3);
+        } else if (tier === 2) {
+          ctx.fillStyle = 'rgba(255,255,255,0.16)';
+          [[-0.38, -0.35], [0.35, -0.35], [-0.45, 0.25], [0.42, 0.25]].forEach(([gx, gy]) => {
+            ctx.beginPath();
+            ctx.arc(gx * r, gy * r, r * 0.22, 0, Math.PI * 2);
+            ctx.fill();
+          });
+          ctx.beginPath();
+          ctx.moveTo(0, -r * 0.9);
+          ctx.lineTo(0, -r * 1.25);
+          ctx.strokeStyle = '#6D4C41';
+          ctx.lineWidth = Math.max(2, r * 0.12);
+          ctx.stroke();
+        } else if (tier === 3) {
+          ctx.beginPath();
+          ctx.arc(0, -r * 0.88, r * 0.28, Math.PI, 0);
+          ctx.fillStyle = '#FF922B';
+          ctx.fill();
+          ctx.strokeStyle = f.border;
+          ctx.lineWidth = Math.max(1.5, r * 0.05);
+          ctx.stroke();
+          drawSingleLeaf(ctx, r * 0.15, -r * 1.02, r * 0.35, '#43A047');
+        } else if (tier === 4) {
+          drawLeafCrown(ctx, r, '#388E3C', 4);
+        } else if (tier === 5) {
+          ctx.beginPath();
+          ctx.moveTo(0, -r * 0.82);
+          ctx.quadraticCurveTo(-r * 0.08, -r * 1.15, r * 0.12, -r * 1.22);
+          ctx.strokeStyle = '#5D4037';
+          ctx.lineWidth = Math.max(2.2, r * 0.09);
+          ctx.lineCap = 'round';
+          ctx.stroke();
+          drawSingleLeaf(ctx, r * 0.08, -r * 1.0, r * 0.32, '#4CAF50');
+        } else if (tier === 6) {
+          ctx.fillStyle = 'rgba(139, 90, 43, 0.22)';
+          [[-0.45, 0.2], [0.48, 0.15], [0.3, 0.55], [-0.35, 0.52]].forEach(([px, py]) => {
+            ctx.beginPath();
+            ctx.arc(px * r, py * r, r * 0.035, 0, Math.PI * 2);
+            ctx.fill();
+          });
+          ctx.beginPath();
+          ctx.moveTo(0, -r * 0.88);
+          ctx.lineTo(r * 0.06, -r * 1.16);
+          ctx.strokeStyle = '#5D4037';
+          ctx.lineWidth = Math.max(2.5, r * 0.08);
+          ctx.stroke();
+        } else if (tier === 7) {
+          ctx.beginPath();
+          ctx.arc(0, -r * 0.55, r * 0.35, 0.2, Math.PI - 0.2);
+          ctx.strokeStyle = 'rgba(180, 60, 95, 0.35)';
+          ctx.lineWidth = Math.max(2, r * 0.04);
+          ctx.stroke();
+          drawSingleLeaf(ctx, r * 0.18, -r * 0.96, r * 0.3, '#558B2F');
+        } else if (tier === 8) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(0, 0, r * 0.96, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.strokeStyle = 'rgba(160, 105, 0, 0.25)';
+          ctx.lineWidth = 1.5;
+          const step = r * 0.36;
+          for (let i = -r * 2; i <= r * 2; i += step) {
+            ctx.beginPath();
+            ctx.moveTo(i, -r);
+            ctx.lineTo(i + r, r);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(i + r, -r);
+            ctx.lineTo(i, r);
+            ctx.stroke();
+          }
+          ctx.restore();
+          drawLeafCrown(ctx, r, '#2E7D32', 5, true);
+        } else if (tier === 9) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(0, 0, r * 0.96, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.strokeStyle = 'rgba(235, 255, 215, 0.45)';
+          ctx.lineWidth = 2;
+          for (let a = -0.8; a <= 0.8; a += 0.32) {
+            ctx.beginPath();
+            ctx.moveTo(a * r, -r);
+            ctx.quadraticCurveTo(a * r * 1.4, 0, a * r, r);
+            ctx.stroke();
+          }
+          for (let b = -0.7; b <= 0.7; b += 0.35) {
+            ctx.beginPath();
+            ctx.moveTo(-r, b * r);
+            ctx.quadraticCurveTo(0, b * r * 1.3, r, b * r);
+            ctx.stroke();
+          }
+          ctx.restore();
+        } else if (tier === 10) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(0, 0, r * 0.97, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.strokeStyle = '#134E20';
+          ctx.lineWidth = Math.max(4, r * 0.085);
+          ctx.lineCap = 'round';
+          [-0.65, -0.32, 0, 0.32, 0.65].forEach((offset) => {
+            ctx.beginPath();
+            for (let yy = -r; yy <= r; yy += r * 0.2) {
+              const wave = Math.sin(yy * 0.12) * r * 0.05;
+              const xx = offset * r * Math.cos((yy / r) * 0.55) + wave;
+              if (yy === -r) ctx.moveTo(xx, yy);
+              else ctx.lineTo(xx, yy);
+            }
+            ctx.stroke();
+          });
+          ctx.restore();
+        }
+
+        ctx.beginPath();
+        ctx.ellipse(-r * 0.34, -r * 0.36, r * 0.24, r * 0.13, -0.6, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.42)';
+        ctx.fill();
+
+        drawKawaiiFace(ctx, r, tier, isBlinking);
+        ctx.restore();
+      }
+
+      function drawSingleLeaf(ctx, lx, ly, size, color) {
+        ctx.save();
+        ctx.translate(lx, ly);
+        ctx.rotate(-0.45);
+        ctx.beginPath();
+        ctx.ellipse(size * 0.45, 0, size * 0.5, size * 0.24, 0, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawLeafCrown(ctx, r, color, count, tall = false) {
+        ctx.save();
+        ctx.fillStyle = color;
+        const spread = 0.45;
+        for (let i = 0; i < count; i++) {
+          const t = count === 1 ? 0 : (i / (count - 1) - 0.5) * 2;
+          ctx.save();
+          ctx.translate(0, -r * 0.92);
+          ctx.rotate(t * spread);
+          ctx.beginPath();
+          ctx.moveTo(-r * 0.12, 0);
+          ctx.lineTo(0, -r * (tall ? 0.36 : 0.22));
+          ctx.lineTo(r * 0.12, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+        ctx.restore();
+      }
+
+      function drawKawaiiFace(ctx, r, tier, isBlinking = false) {
+        const eyeY = -r * 0.04;
+        const eyeX = r * 0.26;
+        const eyeR = Math.max(1.6, r * 0.078);
+
+        ctx.fillStyle = 'rgba(255, 105, 130, 0.48)';
+        ctx.beginPath();
+        ctx.ellipse(-eyeX * 1.28, eyeY + r * 0.15, r * 0.115, r * 0.065, 0, 0, Math.PI * 2);
+        ctx.ellipse(eyeX * 1.28, eyeY + r * 0.15, r * 0.115, r * 0.065, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#2D1B0E';
+        ctx.fillStyle = '#2D1B0E';
+        ctx.lineWidth = Math.max(1.4, r * 0.05);
+        ctx.lineCap = 'round';
+
+        if (isBlinking) {
+          [-eyeX, eyeX].forEach((ex) => {
+            ctx.beginPath();
+            ctx.arc(ex, eyeY, eyeR * 1.05, 0.15 * Math.PI, 0.85 * Math.PI);
+            ctx.stroke();
+          });
+        } else if (tier === 7 && r >= 22) {
+          ctx.beginPath();
+          ctx.arc(-eyeX, eyeY, eyeR, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath();
+          ctx.arc(-eyeX - eyeR * 0.28, eyeY - eyeR * 0.3, eyeR * 0.35, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(eyeX, eyeY + eyeR * 0.15, eyeR * 1.1, 1.1 * Math.PI, 1.9 * Math.PI);
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.arc(-eyeX, eyeY, eyeR, 0, Math.PI * 2);
+          ctx.arc(eyeX, eyeY, eyeR, 0, Math.PI * 2);
+          ctx.fill();
+          if (r >= 18) {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(-eyeX - eyeR * 0.28, eyeY - eyeR * 0.3, eyeR * 0.36, 0, Math.PI * 2);
+            ctx.arc(eyeX - eyeR * 0.28, eyeY - eyeR * 0.3, eyeR * 0.36, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          if (tier === 8 && r >= 24) {
+            ctx.beginPath();
+            ctx.moveTo(-eyeX - eyeR, eyeY - eyeR * 1.5);
+            ctx.lineTo(-eyeX + eyeR * 0.8, eyeY - eyeR * 1.15);
+            ctx.moveTo(eyeX + eyeR, eyeY - eyeR * 1.5);
+            ctx.lineTo(eyeX - eyeR * 0.8, eyeY - eyeR * 1.15);
+            ctx.stroke();
+          }
+        }
+
+        ctx.beginPath();
+        ctx.strokeStyle = '#2D1B0E';
+        ctx.lineWidth = Math.max(1.3, r * 0.045);
+        if (tier === 3 || tier === 0) {
+          ctx.arc(-r * 0.055, eyeY + r * 0.11, r * 0.055, 0.1 * Math.PI, 0.9 * Math.PI);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(r * 0.055, eyeY + r * 0.11, r * 0.055, 0.1 * Math.PI, 0.9 * Math.PI);
+        } else if (tier === 6) {
+          ctx.arc(0, eyeY + r * 0.15, r * 0.06, 0, Math.PI * 2);
+        } else if (tier >= 9) {
+          ctx.arc(0, eyeY + r * 0.1, r * 0.16, 0.12 * Math.PI, 0.88 * Math.PI);
+        } else {
+          ctx.arc(0, eyeY + r * 0.1, r * 0.11, 0.2 * Math.PI, 0.8 * Math.PI);
+        }
+        ctx.stroke();
+      }
+
+      // =========================================================
+      // 4. Cloud Dropper Renderer
+      // =========================================================
+      function drawCloud(ctx, x, y) {
+        ctx.save();
+        ctx.translate(x, y);
+
+        ctx.fillStyle = 'rgba(139, 90, 43, 0.12)';
+        ctx.beginPath();
+        ctx.ellipse(0, 14, 34, 9, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = '#D5C3A8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(-18, 2, 14, Math.PI * 0.5, Math.PI * 1.5);
+        ctx.arc(-6, -9, 16, Math.PI, Math.PI * 2);
+        ctx.arc(12, -6, 14, Math.PI * 1.15, Math.PI * 0.15);
+        ctx.arc(20, 4, 12, Math.PI * 1.5, Math.PI * 0.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#5C3A1B';
+        ctx.beginPath();
+        ctx.arc(-8, 1, 2.2, 0, Math.PI * 2);
+        ctx.arc(8, 1, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(0, 4, 3.2, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.strokeStyle = '#5C3A1B';
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      // =========================================================
+      // 5. Realistic Area-Mass Physics & Full-Scene Future Predictor
+      // =========================================================
+      const canvas = document.getElementById('game-canvas');
+      const ctx = canvas.getContext('2d');
+      const canvasHolder = document.getElementById('canvas-holder');
+      const nextCanvasDesktop = document.getElementById('next-canvas-desktop');
+      const nextCanvasMobile = document.getElementById('next-canvas-mobile');
+      const evoCanvas = document.getElementById('evo-canvas');
+
+      const scoreEl = document.getElementById('score-val');
+      const bestEl = document.getElementById('best-val');
+      const maxFruitNameEl = document.getElementById('max-fruit-name');
+      const nextFruitNameEl = document.getElementById('next-fruit-name');
+      const comboBadgeEl = document.getElementById('combo-badge');
+      const dangerBannerEl = document.getElementById('danger-banner');
+      const gameoverModalEl = document.getElementById('gameover-modal');
+      const finalScoreEl = document.getElementById('final-score');
+      const finalBestEl = document.getElementById('final-best');
+      const finalMaxFruitEl = document.getElementById('final-max-fruit');
+      const finalMergesEl = document.getElementById('final-merges');
+      const newRecordTagEl = document.getElementById('new-record-tag');
+
+      let fruits = [];
+      let nextBodyId = 1;
+      let score = 0;
+      let bestScore = 0;
+      let maxTierReached = 0;
+      let totalMerges = 0;
+      let currentTier = 0;
+      let nextTier = 0;
+      let aimX = BOARD_W / 2;
+      let canDrop = true;
+      let isGameOver = false;
+      let dangerStartTime = null;
+      let comboCount = 0;
+      let comboTimer = null;
+      let animFrameId = null;
+      let keysHeld = { left: false, right: false };
+
+      const particles = [];
+      const floatingTexts = [];
+      const shockwaves = [];
+
+      function loadBestScore() {
+        try {
+          const saved = localStorage.getItem(BEST_SCORE_KEY);
+          return saved ? parseInt(saved, 10) || 0 : 0;
+        } catch (e) {
+          return 0;
+        }
+      }
+
+      function saveBestScore(val) {
+        try {
+          localStorage.setItem(BEST_SCORE_KEY, String(val));
+        } catch (e) {}
+      }
+
+      function randomDropTier() {
+        return Math.floor(Math.random() * 5);
+      }
+
+      function clampAimX(x, tier) {
+        const margin = Math.max(FRUITS[tier].radius, getHitRadius(tier)) + 4;
+        return Math.max(margin, Math.min(BOARD_W - margin, x));
+      }
+
+      function resizeMainCanvas() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const rect = canvasHolder.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+        canvas.width = Math.round(rect.width * dpr);
+        canvas.height = Math.round(rect.height * dpr);
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = rect.height + 'px';
+      }
+
+      function renderNextPreviews() {
+        [nextCanvasDesktop, nextCanvasMobile].forEach((c) => {
+          if (!c) return;
+          const cctx = c.getContext('2d');
+          cctx.clearRect(0, 0, c.width, c.height);
+          const f = FRUITS[nextTier];
+          const maxR = c.width * 0.34;
+          const scale = Math.min(1, maxR / f.radius);
+          drawFruit(cctx, c.width / 2, c.height / 2 + 3, 0, nextTier, scale);
+        });
+        nextFruitNameEl.textContent = FRUITS[nextTier].name;
+      }
+
+      let hoveredEvoTier = null;
+
+      function getEvoFruitPositions(w, h) {
+        const cx = w / 2;
+        const cy = h / 2;
+        const ringR = 86;
+        const positions = [];
+        for (let i = 0; i < FRUITS.length; i++) {
+          const angle = -Math.PI / 2 + (i / FRUITS.length) * Math.PI * 2;
+          const fx = cx + Math.cos(angle) * ringR;
+          const fy = cy + Math.sin(angle) * ringR;
+          const targetR = 10.5 + (i / 10) * 9.5;
+          positions.push({ tier: i, angle, x: fx, y: fy, r: targetR });
+        }
+        return { cx, cy, ringR, positions };
+      }
+
+      function renderEvolutionRing() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const cssSize = 232;
+        if (evoCanvas.width !== cssSize * dpr) {
+          evoCanvas.width = cssSize * dpr;
+          evoCanvas.height = cssSize * dpr;
+          evoCanvas.style.width = cssSize + 'px';
+          evoCanvas.style.height = cssSize + 'px';
+        }
+        const ectx = evoCanvas.getContext('2d');
+        ectx.save();
+        ectx.scale(dpr, dpr);
+        ectx.clearRect(0, 0, cssSize, cssSize);
+
+        const { cx, cy, ringR, positions } = getEvoFruitPositions(cssSize, cssSize);
+
+        ectx.beginPath();
+        ectx.arc(cx, cy, ringR, 0, Math.PI * 2);
+        ectx.strokeStyle = '#F0D9AE';
+        ectx.lineWidth = 4;
+        ectx.stroke();
+
+        for (let i = 0; i < positions.length - 1; i++) {
+          const a1 = positions[i].angle;
+          const a2 = positions[i + 1].angle;
+          const midA = (a1 + a2) / 2;
+          const ax = cx + Math.cos(midA) * ringR;
+          const ay = cy + Math.sin(midA) * ringR;
+
+          ectx.save();
+          ectx.translate(ax, ay);
+          ectx.rotate(midA + Math.PI / 2);
+          ectx.beginPath();
+          ectx.moveTo(-4, -3.5);
+          ectx.lineTo(4, 0);
+          ectx.lineTo(-4, 3.5);
+          ectx.closePath();
+          ectx.fillStyle = '#D98A3C';
+          ectx.fill();
+          ectx.restore();
+        }
+
+        const focusTier = hoveredEvoTier !== null ? hoveredEvoTier : currentTier;
+        const focusFruit = FRUITS[focusTier];
+
+        ectx.beginPath();
+        ectx.arc(cx, cy, 42, 0, Math.PI * 2);
+        ectx.fillStyle = '#FFF6DE';
+        ectx.fill();
+        ectx.lineWidth = 2;
+        ectx.strokeStyle = '#E6C288';
+        ectx.stroke();
+
+        const centerScale = Math.min(1, 20 / focusFruit.radius);
+        drawFruit(ectx, cx, cy - 8, 0, focusTier, centerScale);
+
+        ectx.fillStyle = '#5C3A1B';
+        ectx.font = '800 10.5px "M PLUS Rounded 1c", sans-serif';
+        ectx.textAlign = 'center';
+        ectx.fillText(focusFruit.name, cx, cy + 20);
+
+        ectx.fillStyle = '#C8641E';
+        ectx.font = '800 9.5px "M PLUS Rounded 1c", sans-serif';
+        ectx.fillText(`+${focusFruit.score}点`, cx, cy + 32);
+
+        for (const p of positions) {
+          const isFocus = p.tier === focusTier;
+          const isHeld = p.tier === currentTier;
+          if (isFocus || isHeld) {
+            ectx.beginPath();
+            ectx.arc(p.x, p.y, p.r + 3.5, 0, Math.PI * 2);
+            ectx.fillStyle = isFocus ? 'rgba(255, 147, 79, 0.35)' : 'rgba(255, 200, 80, 0.25)';
+            ectx.fill();
+            ectx.lineWidth = 2;
+            ectx.strokeStyle = isFocus ? '#FF6B2B' : '#E59A28';
+            ectx.stroke();
+          }
+          const scale = p.r / FRUITS[p.tier].radius;
+          drawFruit(ectx, p.x, p.y, 0, p.tier, scale);
+        }
+
+        ectx.restore();
+      }
+
+      function spawnMergeEffects(x, y, tier) {
+        const f = FRUITS[tier];
+        shockwaves.push({
+          x, y,
+          radius: f.radius * 0.5,
+          maxRadius: f.radius * 1.9,
+          color: f.highlight,
+          alpha: 0.9
+        });
+
+        const count = tier >= 8 ? 22 : 12;
+        for (let i = 0; i < count; i++) {
+          const ang = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+          const spd = 1.8 + Math.random() * 3.8;
+          particles.push({
+            x, y,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd - 1.2,
+            radius: 3 + Math.random() * 4.5,
+            color: i % 2 === 0 ? f.color : f.highlight,
+            alpha: 1
+          });
+        }
+
+        floatingTexts.push({
+          x, y: y - 10,
+          text: '+' + f.score,
+          color: tier >= 8 ? '#E65100' : '#5C3A1B',
+          alpha: 1,
+          vy: -1.4
+        });
+      }
+
+      function updateScoreUI() {
+        scoreEl.textContent = score.toLocaleString();
+        if (score > bestScore) {
+          bestScore = score;
+          saveBestScore(bestScore);
+        }
+        bestEl.textContent = bestScore.toLocaleString();
+        maxFruitNameEl.textContent = FRUITS[maxTierReached].name;
+      }
+
+      function showCombo() {
+        comboCount++;
+        clearTimeout(comboTimer);
+        if (comboCount >= 2) {
+          comboBadgeEl.textContent = `${comboCount}コンボ！`;
+          comboBadgeEl.style.opacity = '1';
+        }
+        comboTimer = setTimeout(() => {
+          comboCount = 0;
+          comboBadgeEl.style.opacity = '0';
+        }, 1200);
+      }
+
+      function createFruitBody(x, y, tier, spawnTimeOffset = 0) {
+        const hr = getHitRadius(tier);
+        const mass = getAreaMass(tier);
+        const startScale = spawnTimeOffset > 0 && config.mergeAnim !== 'none' ? 0.62 : 1;
+        return {
+          id: nextBodyId++,
+          x, y,
+          vx: 0, vy: 0,
+          angle: config.rotationEnabled ? (Math.random() - 0.5) * 0.16 : 0,
+          angVel: spawnTimeOffset > 0 && config.mergeAnim === 'spin' ? 0.25 : 0,
+          radius: hr,
+          mass,
+          inertia: 0.5 * mass * hr * hr,
+          tier,
+          isMerging: false,
+          spawnTime: performance.now() - spawnTimeOffset,
+          popScale: startScale
+        };
+      }
+
+      function stepPhysicsWorld(list, dtScale, substeps, isGhostSim) {
+        const grav = config.gravity;
+        const rest = config.restitution;
+        const fric = config.friction;
+        const rotOn = config.rotationEnabled;
+        const subDt = dtScale / substeps;
+        const mergeQueue = [];
+
+        for (let step = 0; step < substeps; step++) {
+          for (let i = 0; i < list.length; i++) {
+            const b = list[i];
+            if (!isGhostSim && b.popScale < 1) {
+              b.popScale = Math.min(1, b.popScale + 0.032 * subDt);
+            }
+            b.vy += grav * subDt;
+            b.vx *= 0.9988;
+            b.vy *= 0.9994;
+            b.angVel *= 0.99;
+
+            b.x += b.vx * subDt;
+            b.y += b.vy * subDt;
+            if (rotOn) {
+              b.angle += b.angVel * subDt;
+            } else {
+              b.angle = 0;
+              b.angVel = 0;
+            }
+
+            // Wall & Floor collisions
+            if (b.x - b.radius < 0) {
+              b.x = b.radius;
+              if (b.vx < 0) {
+                if (!isGhostSim && Math.abs(b.vx) > 2.2) playThudSound(Math.abs(b.vx));
+                b.vx = -b.vx * rest;
+                if (rotOn) b.angVel += (b.vy / b.radius) * 0.15;
+              }
+            } else if (b.x + b.radius > BOARD_W) {
+              b.x = BOARD_W - b.radius;
+              if (b.vx > 0) {
+                if (!isGhostSim && Math.abs(b.vx) > 2.2) playThudSound(Math.abs(b.vx));
+                b.vx = -b.vx * rest;
+                if (rotOn) b.angVel -= (b.vy / b.radius) * 0.15;
+              }
+            }
+
+            if (b.y + b.radius > BOARD_H) {
+              b.y = BOARD_H - b.radius;
+              if (b.vy > 0) {
+                if (!isGhostSim && b.vy > 2.4) playThudSound(b.vy);
+                b.vy = -b.vy * rest;
+                if (Math.abs(b.vy) < 0.2) b.vy = 0;
+              }
+              b.vx *= 0.955;
+              if (rotOn) {
+                const targetAngVel = b.vx / b.radius;
+                b.angVel += (targetAngVel - b.angVel) * 0.3;
+              }
+            }
+          }
+
+          // Circle-circle collisions & area-mass impulse solver
+          for (let i = 0; i < list.length; i++) {
+            const a = list[i];
+            if (a.isMerging) continue;
+            for (let j = i + 1; j < list.length; j++) {
+              const b = list[j];
+              if (b.isMerging) continue;
+
+              const dx = b.x - a.x;
+              const dy = b.y - a.y;
+              const minDist = a.radius + b.radius;
+              const distSq = dx * dx + dy * dy;
+
+              if (distSq < minDist * minDist) {
+                if (a.tier === b.tier) {
+                  a.isMerging = true;
+                  b.isMerging = true;
+                  mergeQueue.push([a, b]);
+                  continue;
+                }
+
+                const dist = Math.sqrt(distSq) || 0.001;
+                const nx = dx / dist;
+                const ny = dy / dist;
+                const overlap = minDist - dist;
+
+                const invMassA = 1 / a.mass;
+                const invMassB = 1 / b.mass;
+                const invMassSum = invMassA + invMassB;
+
+                const corr = (Math.max(0, overlap - 0.04) * 0.9) / invMassSum;
+                a.x -= nx * corr * invMassA;
+                a.y -= ny * corr * invMassA;
+                b.x += nx * corr * invMassB;
+                b.y += ny * corr * invMassB;
+
+                const tx = -ny;
+                const ty = nx;
+                const surfVelA = rotOn ? a.angVel * a.radius : 0;
+                const surfVelB = rotOn ? b.angVel * b.radius : 0;
+                const rvx = (b.vx - surfVelB * tx) - (a.vx + surfVelA * tx);
+                const rvy = (b.vy - surfVelB * ty) - (a.vy + surfVelA * ty);
+
+                const velAlongNormal = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+                if (velAlongNormal < 0) {
+                  if (!isGhostSim && velAlongNormal < -2.8) playThudSound(-velAlongNormal);
+                  const jImpulse = -(1 + rest) * velAlongNormal / invMassSum;
+                  const impX = jImpulse * nx;
+                  const impY = jImpulse * ny;
+
+                  a.vx -= impX * invMassA;
+                  a.vy -= impY * invMassA;
+                  b.vx += impX * invMassB;
+                  b.vy += impY * invMassB;
+
+                  const vt = rvx * tx + rvy * ty;
+                  const denomT = invMassSum + (a.radius * a.radius) / a.inertia + (b.radius * b.radius) / b.inertia;
+                  let jt = -vt / denomT;
+                  const maxFriction = Math.abs(jImpulse) * fric;
+                  jt = Math.max(-maxFriction, Math.min(maxFriction, jt));
+
+                  a.vx -= jt * tx * invMassA;
+                  a.vy -= jt * ty * invMassA;
+                  b.vx += jt * tx * invMassB;
+                  b.vy += jt * ty * invMassB;
+
+                  if (rotOn) {
+                    a.angVel -= (jt * a.radius) / a.inertia;
+                    b.angVel -= (jt * b.radius) / b.inertia;
+                  }
+                }
+              }
+            }
+          }
+        }
+        return mergeQueue;
+      }
+
+      function stepPhysics(dtScale) {
+        const mergeQueue = stepPhysicsWorld(fruits, dtScale, SUBSTEPS, false);
+
+        if (mergeQueue.length > 0) {
+          const toRemove = new Set();
+          for (const [a, b] of mergeQueue) {
+            toRemove.add(a.id);
+            toRemove.add(b.id);
+            const tier = a.tier;
+            const mx = (a.x + b.x) / 2;
+            const my = (a.y + b.y) / 2;
+
+            totalMerges++;
+            showCombo();
+
+            if (tier < FRUITS.length - 1) {
+              const nextT = tier + 1;
+              const merged = createFruitBody(
+                clampAimX(mx, nextT),
+                Math.min(BOARD_H - getHitRadius(nextT) - 1, my),
+                nextT,
+                1400
+              );
+              merged.vy = -1.35;
+              fruits.push(merged);
+
+              const pushR = getHitRadius(nextT) * 1.8;
+              for (const other of fruits) {
+                if (toRemove.has(other.id) || other.id === merged.id) continue;
+                const odx = other.x - merged.x;
+                const ody = other.y - merged.y;
+                const odist = Math.hypot(odx, ody) || 1;
+                if (odist < pushR) {
+                  const strength = (1 - odist / pushR) * 1.4;
+                  other.vx += (odx / odist) * strength;
+                  other.vy += (ody / odist) * strength - 0.3;
+                }
+              }
+
+              score += FRUITS[tier].score;
+              if (nextT > maxTierReached) maxTierReached = nextT;
+              playMergeSound(nextT);
+              spawnMergeEffects(mx, my, nextT);
+            } else {
+              score += FRUITS[tier].score;
+              playMergeSound(tier);
+              spawnMergeEffects(mx, my, tier);
+            }
+          }
+          fruits = fruits.filter((f) => !toRemove.has(f.id));
+          updateScoreUI();
+        }
+      }
+
+      // Full-scene forward physics simulation for all fruits + dropped fruit!
+      function simulateFutureWorld(dropX, tier, frames = 44) {
+        const simList = fruits.map((b) => ({
+          id: b.id,
+          x: b.x,
+          y: b.y,
+          vx: b.vx,
+          vy: b.vy,
+          angle: b.angle,
+          angVel: b.angVel,
+          radius: b.radius,
+          mass: b.mass,
+          inertia: b.inertia,
+          tier: b.tier,
+          isMerging: false,
+          isDropped: false,
+          origX: b.x,
+          origY: b.y
+        }));
+
+        const dropped = createFruitBody(dropX, DROP_Y, tier);
+        dropped.id = -999;
+        dropped.isDropped = true;
+        dropped.origX = dropX;
+        dropped.origY = DROP_Y;
+        simList.push(dropped);
+
+        const droppedTrail = [{ x: dropX, y: DROP_Y }];
+        const predictedMerges = [];
+        const FRAMES = frames;
+
+        for (let f = 0; f < FRAMES; f++) {
+          const merges = stepPhysicsWorld(simList, 1.0, 4, true);
+          const dropRef = simList.find((item) => item.id === -999);
+          if (dropRef && f % 2 === 0) {
+            droppedTrail.push({ x: dropRef.x, y: dropRef.y });
+          }
+
+          if (merges.length > 0) {
+            const toRemove = new Set();
+            for (const [a, b] of merges) {
+              toRemove.add(a.id);
+              toRemove.add(b.id);
+              const mx = (a.x + b.x) / 2;
+              const my = (a.y + b.y) / 2;
+              const nextT = a.tier < FRUITS.length - 1 ? a.tier + 1 : null;
+              predictedMerges.push({
+                x: mx,
+                y: my,
+                fromTier: a.tier,
+                toTier: nextT,
+                involvesDropped: a.isDropped || b.isDropped
+              });
+              if (nextT !== null) {
+                const evolved = createFruitBody(
+                  clampAimX(mx, nextT),
+                  Math.min(BOARD_H - getHitRadius(nextT) - 1, my),
+                  nextT
+                );
+                evolved.id = -1000 - predictedMerges.length;
+                evolved.isEvolved = true;
+                simList.push(evolved);
+              }
+            }
+            for (let k = simList.length - 1; k >= 0; k--) {
+              if (toRemove.has(simList[k].id)) simList.splice(k, 1);
+            }
+          }
+        }
+
+        return { simList, droppedTrail, predictedMerges };
+      }
+
+      // =========================================================
+      // 5b. AI Mode: Multi-Position Physics Simulation & Evaluator
+      // =========================================================
+      const aiBtn = document.getElementById('ai-btn');
+      const aiIcon = document.getElementById('ai-icon');
+      const aiLabel = document.getElementById('ai-label');
+      const aiStatusPill = document.getElementById('ai-status-pill');
+
+      let aiEnabled = false;
+      let aiTargetX = null;
+      let aiDecisionTime = 0;
+      let aiWaitMs = 0;
+      let aiEvalResults = [];
+      let aiBestInfo = null;
+
+      function cloneSimList(src) {
+        return src.map((b) => ({
+          id: b.id, x: b.x, y: b.y, vx: b.vx, vy: b.vy,
+          angle: b.angle, angVel: b.angVel, radius: b.radius,
+          mass: b.mass, inertia: b.inertia, tier: b.tier,
+          isMerging: false, isDropped: false, isEvolved: false
+        }));
+      }
+
+      function stepSimWithMerges(simList, frames, predictedMerges) {
+        for (let f = 0; f < frames; f++) {
+          const merges = stepPhysicsWorld(simList, 1.0, 4, true);
+          if (merges.length > 0) {
+            const toRemove = new Set();
+            for (const [a, b] of merges) {
+              toRemove.add(a.id); toRemove.add(b.id);
+              const mx = (a.x + b.x) / 2;
+              const my = (a.y + b.y) / 2;
+              const nextT = a.tier < FRUITS.length - 1 ? a.tier + 1 : null;
+              if (predictedMerges) {
+                predictedMerges.push({ x: mx, y: my, fromTier: a.tier, toTier: nextT });
+              }
+              if (nextT !== null) {
+                const evolved = createFruitBody(
+                  clampAimX(mx, nextT),
+                  Math.min(BOARD_H - getHitRadius(nextT) - 1, my),
+                  nextT
+                );
+                evolved.id = -1000 - Math.floor(Math.random() * 100000);
+                evolved.isEvolved = true;
+                simList.push(evolved);
+              }
+            }
+            for (let k = simList.length - 1; k >= 0; k--) {
+              if (toRemove.has(simList[k].id)) simList.splice(k, 1);
+            }
+          }
+        }
+      }
+
+      function simulateFutureAfterWait(dropX, tier, waitFrames, dropFrames) {
+        const simList = cloneSimList(fruits);
+        if (waitFrames > 0) stepSimWithMerges(simList, waitFrames, null);
+
+        const dropped = createFruitBody(dropX, DROP_Y, tier);
+        dropped.id = -999;
+        dropped.isDropped = true;
+        simList.push(dropped);
+
+        const predictedMerges = [];
+        stepSimWithMerges(simList, dropFrames, predictedMerges);
+        return { simList, predictedMerges };
+      }
+
+      function scoreSimResult(sim, baseCount) {
+        let utility = 0;
+        let expectedPoints = 0;
+        let maxEvolved = -1;
+
+        // 1. Points & Evolution tier reward
+        for (const m of sim.predictedMerges) {
+          const pts = FRUITS[m.fromTier].score;
+          expectedPoints += pts;
+          const evoTier = m.toTier !== null ? m.toTier : m.fromTier;
+          if (evoTier > maxEvolved) maxEvolved = evoTier;
+          utility += pts * 28 + Math.pow(evoTier + 1, 2.2) * 22;
+        }
+
+        // 2. +100 per item reduced
+        const reducedCount = (baseCount + 1) - sim.simList.length;
+        utility += reducedCount * 100;
+
+        let maxTopY = BOARD_H;
+        let droppedFinal = null;
+        let largestFruit = null;
+
+        for (const sf of sim.simList) {
+          const topY = sf.y - sf.radius;
+          if (topY < maxTopY) maxTopY = topY;
+          if (sf.isDropped || sf.isEvolved) droppedFinal = sf;
+          if (!largestFruit || sf.tier > largestFruit.tier || (sf.tier === largestFruit.tier && sf.y > largestFruit.y)) {
+            largestFruit = sf;
+          }
+          // Height damage (-100 scale)
+          const normH = Math.max(0, (BOARD_H - topY) / (BOARD_H - DANGER_Y));
+          utility -= Math.pow(normH, 1.5) * 100;
+        }
+
+        // Peak & Overflow danger penalty
+        const peakNorm = Math.max(0, (BOARD_H - maxTopY) / (BOARD_H - DANGER_Y));
+        utility -= Math.pow(peakNorm, 2) * 140;
+        if (maxTopY < DANGER_Y + 42) {
+          utility -= (DANGER_Y + 42 - maxTopY) * 120;
+        }
+
+        // 3. Pro Suika Strategy: Monotonic Corner Ordering & Anti-Inversion
+        // Anchor side = side of the largest fruit (default left if none)
+        const anchorLeft = largestFruit ? largestFruit.x < BOARD_W / 2 : true;
+        for (let i = 0; i < sim.simList.length; i++) {
+          const a = sim.simList[i];
+          const edgeDist = anchorLeft ? a.x : (BOARD_W - a.x);
+          // Larger fruits should sit closer to the anchor corner!
+          utility -= (edgeDist / BOARD_W) * (a.tier + 1) * 16;
+
+          for (let j = i + 1; j < sim.simList.length; j++) {
+            const b = sim.simList[j];
+            const dist = Math.hypot(a.x - b.x, a.y - b.y) - (a.radius + b.radius);
+            if (dist < 26) {
+              // Bonus for adjacent staircase (tier diff 0 or 1)
+              const tDiff = Math.abs(a.tier - b.tier);
+              if (tDiff === 0) utility += 95;
+              else if (tDiff === 1) utility += 52;
+
+              // Inversion penalty: small fruit buried directly under a much larger fruit!
+              const small = a.tier < b.tier ? a : b;
+              const big = a.tier < b.tier ? b : a;
+              if (big.tier - small.tier >= 2 && big.y < small.y - small.radius * 0.4 && Math.abs(big.x - small.x) < big.radius) {
+                utility -= 140 * (big.tier - small.tier);
+              }
+            }
+          }
+        }
+
+        if (droppedFinal) {
+          const dropNormH = Math.max(0, (BOARD_H - (droppedFinal.y - droppedFinal.radius)) / (BOARD_H - DANGER_Y));
+          utility -= dropNormH * 100;
+
+          // Support largest item & check for clutter/blocking
+          let isBlockingLargest = false;
+          if (largestFruit && largestFruit !== droppedFinal) {
+            const dxL = droppedFinal.x - largestFruit.x;
+            const dyL = droppedFinal.y - largestFruit.y;
+            const gapL = Math.hypot(dxL, dyL) - (droppedFinal.radius + largestFruit.radius);
+            const tierDiff = largestFruit.tier - droppedFinal.tier;
+
+            if (tierDiff <= 1) {
+              utility += Math.max(0, 120 - gapL * 0.5);
+            } else if (tierDiff === 2) {
+              utility += Math.max(0, 55 - gapL * 0.3);
+            } else if (Math.abs(dxL) < largestFruit.radius * 0.85 && dyL < 0) {
+              isBlockingLargest = true;
+            }
+          }
+
+          let hasHelpfulNeighbor = baseCount === 0;
+          for (const other of sim.simList) {
+            if (other === droppedFinal) continue;
+            const gap = Math.hypot(other.x - droppedFinal.x, other.y - droppedFinal.y) - (other.radius + droppedFinal.radius);
+            if (gap < 36 && (other.tier === droppedFinal.tier || other.tier === droppedFinal.tier + 1)) {
+              hasHelpfulNeighbor = true;
+              break;
+            }
+          }
+
+          // Heavy penalty for creating buried/blocking clutter with no merge or setup
+          if (sim.predictedMerges.length === 0 && isBlockingLargest) {
+            utility -= 10000;
+          } else if (sim.predictedMerges.length === 0 && !hasHelpfulNeighbor && baseCount >= 4) {
+            utility -= 400;
+          }
+        }
+
+        return { utility, expectedPoints, maxEvolved };
+      }
+
+      function evaluateAiMove() {
+        const margin = Math.max(FRUITS[currentTier].radius, getHitRadius(currentTier)) + 6;
+        const minX = margin;
+        const maxX = BOARD_W - margin;
+
+        const candSet = new Set();
+        const steps = 12;
+        for (let i = 0; i <= steps; i++) {
+          candSet.add(Math.round(minX + ((maxX - minX) * i) / steps));
+        }
+        for (const b of fruits) {
+          if (b.tier === currentTier || b.tier === currentTier + 1) {
+            candSet.add(Math.round(clampAimX(b.x, currentTier)));
+            candSet.add(Math.round(clampAimX(b.x - b.radius * 0.45, currentTier)));
+            candSet.add(Math.round(clampAimX(b.x + b.radius * 0.45, currentTier)));
+          }
+        }
+
+        // Full 58-frame drop simulation so fruits always reach the floor/pile and settle!
+        const results = [];
+        for (const cx of candSet) {
+          const sim = simulateFutureAfterWait(cx, currentTier, 0, 58);
+          const sc = scoreSimResult(sim, fruits.length);
+          results.push({ x: cx, waitFrames: 0, sim, ...sc });
+        }
+
+        // 2-Ply Lookahead with nextTier on top 5 candidates!
+        results.sort((a, b) => b.utility - a.utility);
+        const topCandidates = results.slice(0, 5);
+        const nextMargin = Math.max(FRUITS[nextTier].radius, getHitRadius(nextTier)) + 6;
+
+        for (const cand of topCandidates) {
+          let bestNextUtil = -Infinity;
+          const nextPositions = [
+            Math.round(nextMargin),
+            Math.round(BOARD_W * 0.28),
+            Math.round(BOARD_W * 0.5),
+            Math.round(BOARD_W * 0.72),
+            Math.round(BOARD_W - nextMargin)
+          ];
+          for (const b of cand.sim.simList) {
+            if (b.tier === nextTier) nextPositions.push(Math.round(clampAimX(b.x, nextTier)));
+          }
+          for (const nx of nextPositions) {
+            const sim2List = cloneSimList(cand.sim.simList);
+            const drop2 = createFruitBody(clampAimX(nx, nextTier), DROP_Y, nextTier);
+            drop2.id = -998;
+            drop2.isDropped = true;
+            sim2List.push(drop2);
+            const merges2 = [];
+            stepSimWithMerges(sim2List, 46, merges2);
+            const sc2 = scoreSimResult({ simList: sim2List, predictedMerges: merges2 }, cand.sim.simList.length);
+            if (sc2.utility > bestNextUtil) bestNextUtil = sc2.utility;
+          }
+          if (bestNextUtil > -Infinity) {
+            cand.totalUtility = cand.utility + bestNextUtil * 0.55;
+          } else {
+            cand.totalUtility = cand.utility;
+          }
+        }
+
+        let best = topCandidates[0];
+        for (const c of topCandidates) {
+          if (c.totalUtility > best.totalUtility) best = c;
+        }
+
+        // Check if waiting 0.3s / 0.6s / 0.9s improves the move when fruits are still rolling
+        let maxSpeed = 0;
+        for (const b of fruits) {
+          const spd = Math.hypot(b.vx, b.vy);
+          if (spd > maxSpeed) maxSpeed = spd;
+        }
+        if (maxSpeed > 0.65 && best) {
+          for (const wf of [18, 36, 54]) {
+            const simW = simulateFutureAfterWait(best.x, currentTier, wf, 54);
+            const scW = scoreSimResult(simW, fruits.length);
+            if (scW.utility > best.utility + 20) {
+              best = { x: best.x, waitFrames: wf, ...scW };
+            }
+          }
+        }
+
+        const baseWaitMs = Math.min(180, Math.max(30, (config.dropCooldown ?? 0.5) * 260));
+        const extraWaitMs = best ? Math.round((best.waitFrames / 60) * 1000) : 0;
+        aiWaitMs = Math.max(baseWaitMs, extraWaitMs);
+
+        aiEvalResults = results;
+        aiBestInfo = best;
+        aiTargetX = best ? best.x : BOARD_W / 2;
+        aiDecisionTime = performance.now();
+
+        if (best) {
+          const waitSecStr = (aiWaitMs / 1000).toFixed(2);
+          const evoStr = best.maxEvolved >= 0 ? ` ・ ${FRUITS[best.maxEvolved].name}` : '';
+          aiStatusPill.textContent = `🤖 X=${best.x} ・ 待ち:${waitSecStr}秒 (予測+${best.expectedPoints}点${evoStr})`;
+        }
+      }
+
+      function toggleAiMode() {
+        aiEnabled = !aiEnabled;
+        aiIcon.textContent = aiEnabled ? '⚡' : '🤖';
+        aiLabel.textContent = aiEnabled ? 'AI ON' : 'AI OFF';
+        aiBtn.classList.toggle('btn-primary', aiEnabled);
+        aiBtn.classList.toggle('btn-soft', !aiEnabled);
+        if (aiEnabled) {
+          aiStatusPill.classList.remove('hidden');
+          aiTargetX = null;
+          if (canDrop && !isGameOver) evaluateAiMove();
+        } else {
+          aiStatusPill.classList.add('hidden');
+          aiTargetX = null;
+          aiEvalResults = [];
+          aiBestInfo = null;
+        }
+      }
+      aiBtn.addEventListener('click', toggleAiMode);
+
+      function initGame() {
+        if (animFrameId) {
+          cancelAnimationFrame(animFrameId);
+          animFrameId = null;
+        }
+        fruits = [];
+        particles.length = 0;
+        floatingTexts.length = 0;
+        shockwaves.length = 0;
+
+        score = 0;
+        bestScore = loadBestScore();
+        maxTierReached = 0;
+        totalMerges = 0;
+        currentTier = randomDropTier();
+        nextTier = randomDropTier();
+        aimX = BOARD_W / 2;
+        aiTargetX = null;
+        aiEvalResults = [];
+        aiBestInfo = null;
+        canDrop = true;
+        isGameOver = false;
+        dangerStartTime = null;
+        comboCount = 0;
+        comboBadgeEl.style.opacity = '0';
+        dangerBannerEl.classList.add('hidden');
+        gameoverModalEl.classList.add('hidden');
+        newRecordTagEl.classList.add('hidden');
+
+        updateScoreUI();
+        renderNextPreviews();
+        renderEvolutionRing();
+        resizeMainCanvas();
+        lastLoopTime = performance.now();
+        animFrameId = requestAnimationFrame(gameLoop);
+      }
+
+      function dropCurrentFruit() {
+        if (!canDrop || isGameOver) return;
+        ensureAudio();
+        canDrop = false;
+
+        const x = clampAimX(aimX, currentTier);
+        fruits.push(createFruitBody(x, DROP_Y, currentTier));
+        playDropSound();
+
+        if (currentTier > maxTierReached) {
+          maxTierReached = currentTier;
+          updateScoreUI();
+        }
+
+        currentTier = nextTier;
+        nextTier = randomDropTier();
+        aimX = clampAimX(aimX, currentTier);
+        renderNextPreviews();
+        renderEvolutionRing();
+
+        const delayMs = Math.max(0, Math.round((config.dropCooldown ?? 0.5) * 1000));
+        aiTargetX = null;
+        if (delayMs === 0) {
+          if (!isGameOver) {
+            canDrop = true;
+            if (aiEnabled) evaluateAiMove();
+          }
+        } else {
+          setTimeout(() => {
+            if (!isGameOver) {
+              canDrop = true;
+              if (aiEnabled) evaluateAiMove();
+            }
+          }, delayMs);
+        }
+      }
+
+      function triggerGameOver() {
+        isGameOver = true;
+        canDrop = false;
+        dangerBannerEl.classList.add('hidden');
+        playGameOverSound();
+
+        const previousBest = loadBestScore();
+        const isNewRecord = score > 0 && score >= bestScore && score >= previousBest;
+        if (score >= bestScore && score > 0) {
+          saveBestScore(score);
+        }
+
+        finalScoreEl.textContent = score.toLocaleString();
+        finalBestEl.textContent = bestScore.toLocaleString();
+        finalMaxFruitEl.textContent = FRUITS[maxTierReached].name;
+        finalMergesEl.textContent = `${totalMerges}回`;
+        if (isNewRecord) {
+          newRecordTagEl.classList.remove('hidden');
+        }
+        gameoverModalEl.classList.remove('hidden');
+      }
+
+      // =========================================================
+      // 6. Main Game Loop & Rendering
+      // =========================================================
+      let lastLoopTime = performance.now();
+
+      function gameLoop(now) {
+        const dt = Math.min(32, Math.max(8, now - lastLoopTime));
+        lastLoopTime = now;
+
+        if (!isGameOver) {
+          if (aiEnabled && canDrop) {
+            if (aiTargetX === null) {
+              evaluateAiMove();
+            } else {
+              const diff = aiTargetX - aimX;
+              if (Math.abs(diff) <= 6) {
+                aimX = aiTargetX;
+                if (now - aiDecisionTime >= aiWaitMs) {
+                  dropCurrentFruit();
+                }
+              } else {
+                aimX += Math.sign(diff) * Math.min(Math.abs(diff), 9);
+              }
+            }
+          } else {
+            if (keysHeld.left) aimX = clampAimX(aimX - 4.5, currentTier);
+            if (keysHeld.right) aimX = clampAimX(aimX + 4.5, currentTier);
+          }
+          stepPhysics(dt / 16.6667);
+        }
+
+        let anyAboveDanger = false;
+        for (const b of fruits) {
+          const age = now - b.spawnTime;
+          if (age > 1400 && b.y - b.radius < DANGER_Y) {
+            anyAboveDanger = true;
+            break;
+          }
+        }
+
+        if (!isGameOver) {
+          if (anyAboveDanger) {
+            if (!dangerStartTime) dangerStartTime = now;
+            const elapsed = now - dangerStartTime;
+            if (elapsed > 600) dangerBannerEl.classList.remove('hidden');
+            if (elapsed >= DANGER_GRACE_MS) {
+              triggerGameOver();
+            }
+          } else {
+            dangerStartTime = null;
+            dangerBannerEl.classList.add('hidden');
+          }
+        }
+
+        renderBoard(now);
+        animFrameId = requestAnimationFrame(gameLoop);
+      }
+
+      function renderBoard(now) {
+        const scaleX = canvas.width / BOARD_W;
+        const scaleY = canvas.height / BOARD_H;
+        ctx.save();
+        ctx.scale(scaleX, scaleY);
+
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, BOARD_H);
+        bgGrad.addColorStop(0, '#FFFDF7');
+        bgGrad.addColorStop(1, '#FCECC9');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, BOARD_W, BOARD_H);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.32)';
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(130, 0);
+        ctx.lineTo(0, 210);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(216, 164, 104, 0.14)';
+        ctx.fillRect(0, BOARD_H - 14, BOARD_W, 14);
+
+        if (dangerStartTime && !isGameOver) {
+          const pulse = 0.12 + Math.sin(now * 0.012) * 0.08;
+          ctx.fillStyle = `rgba(239, 68, 68, ${pulse})`;
+          ctx.fillRect(0, 0, BOARD_W, DANGER_Y);
+        }
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.setLineDash([8, 6]);
+        ctx.moveTo(0, DANGER_Y);
+        ctx.lineTo(BOARD_W, DANGER_Y);
+        ctx.strokeStyle = dangerStartTime ? '#DC2626' : 'rgba(220, 38, 38, 0.45)';
+        ctx.lineWidth = dangerStartTime ? 2.5 : 1.8;
+        ctx.stroke();
+        ctx.restore();
+
+        // Render physics fruits
+        for (const b of fruits) {
+          const blinkCycle = (now + b.id * 730) % 4200;
+          const isBlinking = blinkCycle < 140;
+          drawFruit(ctx, b.x, b.y, b.angle, b.tier, b.popScale || 1, 1, isBlinking);
+
+          if (config.showHitboxRing) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(37, 99, 235, 0.55)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([3, 3]);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+
+        // Full-scene future prediction & aiming
+        if (!isGameOver) {
+          const clampedX = clampAimX(aimX, currentTier);
+          if (canDrop) {
+            if (config.showFutureSim) {
+              const sim = simulateFutureWorld(clampedX, currentTier);
+              const ghostAlpha = isPointerDown ? 0.30 : 0.18;
+
+              // Dropped fruit predicted trajectory trail
+              if (sim.droppedTrail.length > 1) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.setLineDash([5, 5]);
+                ctx.moveTo(sim.droppedTrail[0].x, sim.droppedTrail[0].y);
+                for (let t = 1; t < sim.droppedTrail.length; t++) {
+                  ctx.lineTo(sim.droppedTrail[t].x, sim.droppedTrail[t].y);
+                }
+                ctx.strokeStyle = isPointerDown ? 'rgba(255, 107, 43, 0.55)' : 'rgba(139, 90, 43, 0.28)';
+                ctx.lineWidth = isPointerDown ? 2.2 : 1.6;
+                ctx.stroke();
+                ctx.restore();
+              }
+
+              // Future ghosts for ALL fruits that move significantly, plus the dropped fruit
+              for (const sf of sim.simList) {
+                if (sf.isDropped) {
+                  drawFruit(ctx, sf.x, sf.y, sf.angle, sf.tier, 1, ghostAlpha + 0.06);
+                  ctx.save();
+                  ctx.beginPath();
+                  ctx.setLineDash([4, 4]);
+                  ctx.arc(sf.x, sf.y, sf.radius, 0, Math.PI * 2);
+                  ctx.strokeStyle = 'rgba(255, 107, 43, 0.7)';
+                  ctx.lineWidth = 1.8;
+                  ctx.stroke();
+                  ctx.restore();
+                } else if (sf.isEvolved) {
+                  // Faint ghost of evolved fruit!
+                  drawFruit(ctx, sf.x, sf.y, sf.angle, sf.tier, 1, ghostAlpha + 0.08);
+                  ctx.save();
+                  ctx.beginPath();
+                  ctx.setLineDash([5, 4]);
+                  ctx.arc(sf.x, sf.y, sf.radius, 0, Math.PI * 2);
+                  ctx.strokeStyle = 'rgba(255, 140, 0, 0.8)';
+                  ctx.lineWidth = 2;
+                  ctx.stroke();
+                  ctx.restore();
+                } else {
+                  const movedDist = Math.hypot(sf.x - sf.origX, sf.y - sf.origY);
+                  if (movedDist > 4) {
+                    // Draw motion vector from current position to future position
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.setLineDash([3, 3]);
+                    ctx.moveTo(sf.origX, sf.origY);
+                    ctx.lineTo(sf.x, sf.y);
+                    ctx.strokeStyle = 'rgba(59, 130, 246, 0.45)';
+                    ctx.lineWidth = 1.6;
+                    ctx.stroke();
+                    ctx.restore();
+
+                    drawFruit(ctx, sf.x, sf.y, sf.angle, sf.tier, 1, ghostAlpha);
+                  }
+                }
+              }
+
+              // Predicted merge labels
+              sim.predictedMerges.slice(0, 3).forEach((m, idx) => {
+                ctx.save();
+                ctx.font = '800 11.5px "M PLUS Rounded 1c", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.lineWidth = 3.5;
+                ctx.strokeStyle = 'rgba(255, 253, 247, 0.92)';
+                const txt = m.toTier !== null
+                  ? `✨ ${idx > 0 ? '連鎖→' : '→'}${FRUITS[m.toTier].name}`
+                  : '✨ 消滅!';
+                const ly = m.y - (m.toTier !== null ? FRUITS[m.toTier].radius + 6 : 20);
+                ctx.strokeText(txt, m.x, ly);
+                ctx.fillStyle = '#D84315';
+                ctx.fillText(txt, m.x, ly);
+                ctx.restore();
+              });
+            }
+
+            // Show AI evaluated candidate positions
+            if (aiEnabled && aiEvalResults.length > 0) {
+              for (const ev of aiEvalResults) {
+                const isBest = aiBestInfo && ev.x === aiBestInfo.x;
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(ev.x, DROP_Y, isBest ? 5.5 : 3, 0, Math.PI * 2);
+                ctx.fillStyle = isBest
+                  ? '#10B981'
+                  : ev.expectedPoints > 0
+                  ? 'rgba(245, 158, 11, 0.7)'
+                  : 'rgba(139, 90, 43, 0.25)';
+                ctx.fill();
+                ctx.restore();
+              }
+            }
+
+            drawFruit(ctx, clampedX, DROP_Y, 0, currentTier, 1, 0.96);
+          }
+          drawCloud(ctx, clampedX, CLOUD_Y);
+        }
+
+        // Shockwaves
+        for (let i = shockwaves.length - 1; i >= 0; i--) {
+          const sw = shockwaves[i];
+          sw.radius += (sw.maxRadius - sw.radius) * 0.2;
+          sw.alpha -= 0.06;
+          if (sw.alpha <= 0) {
+            shockwaves.splice(i, 1);
+            continue;
+          }
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+          ctx.strokeStyle = sw.color;
+          ctx.globalAlpha = sw.alpha;
+          ctx.lineWidth = 4;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.16;
+          p.alpha -= 0.032;
+          if (p.alpha <= 0) {
+            particles.splice(i, 1);
+            continue;
+          }
+          ctx.save();
+          ctx.globalAlpha = p.alpha;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // Floating score popups
+        for (let i = floatingTexts.length - 1; i >= 0; i--) {
+          const ft = floatingTexts[i];
+          ft.y += ft.vy;
+          ft.alpha -= 0.024;
+          if (ft.alpha <= 0) {
+            floatingTexts.splice(i, 1);
+            continue;
+          }
+          ctx.save();
+          ctx.globalAlpha = ft.alpha;
+          ctx.font = '800 18px "M PLUS Rounded 1c", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = '#FFFDF7';
+          ctx.strokeText(ft.text, ft.x, ft.y);
+          ctx.fillStyle = ft.color;
+          ctx.fillText(ft.text, ft.x, ft.y);
+          ctx.restore();
+        }
+
+        ctx.restore();
+      }
+
+      // =========================================================
+      // 7. Customizer Modal Logic (11 Texts/Emojis, Hitbox, Size, Physics)
+      // =========================================================
+      const customModal = document.getElementById('custom-modal');
+      const tierEditorList = document.getElementById('tier-editor-list');
+      const cfgGravity = document.getElementById('cfg-gravity');
+      const cfgGravityVal = document.getElementById('cfg-gravity-val');
+      const cfgRestitution = document.getElementById('cfg-restitution');
+      const cfgRestitutionVal = document.getElementById('cfg-restitution-val');
+      const cfgFriction = document.getElementById('cfg-friction');
+      const cfgFrictionVal = document.getElementById('cfg-friction-val');
+      const cfgCooldown = document.getElementById('cfg-cooldown');
+      const cfgCooldownVal = document.getElementById('cfg-cooldown-val');
+      const cfgRotation = document.getElementById('cfg-rotation');
+      const cfgFuture = document.getElementById('cfg-future');
+      const cfgHitboxRing = document.getElementById('cfg-hitbox-ring');
+      const cfgMergeAnim = document.getElementById('cfg-merge-anim');
+
+      let draftConfig = null;
+
+      function renderCustomEditor() {
+        cfgGravity.value = draftConfig.gravity;
+        cfgGravityVal.textContent = Number(draftConfig.gravity).toFixed(2);
+        cfgRestitution.value = draftConfig.restitution;
+        cfgRestitutionVal.textContent = Number(draftConfig.restitution).toFixed(2);
+        cfgFriction.value = draftConfig.friction;
+        cfgFrictionVal.textContent = Number(draftConfig.friction).toFixed(2);
+        const cd = draftConfig.dropCooldown ?? 0.50;
+        cfgCooldown.value = cd;
+        cfgCooldownVal.textContent = Number(cd).toFixed(2) + '秒';
+        cfgRotation.checked = draftConfig.rotationEnabled;
+        cfgFuture.checked = draftConfig.showFutureSim;
+        cfgHitboxRing.checked = draftConfig.showHitboxRing;
+        cfgMergeAnim.value = draftConfig.mergeAnim;
+
+        tierEditorList.innerHTML = draftConfig.items.map((it, idx) => {
+          const hr = Math.max(8, it.radius * (it.hitboxScale || 1));
+          const areaWeight = Math.round((Math.PI * hr * hr * (it.density || 1)) / 10);
+          return `
+            <div class="bg-[#FFF9EB] border border-[#E4BE86] rounded-xl p-2.5 grid grid-cols-1 md:grid-cols-[44px_110px_90px_1fr_1fr_1fr] gap-2 items-center text-xs font-bold">
+              <div class="text-center font-extrabold text-[#9C6B3B]">#${idx + 1}</div>
+              <select data-idx="${idx}" data-field="mode" class="tier-input bg-white border border-[#D8A468] rounded-lg px-2 py-1 font-bold">
+                <option value="art" ${it.mode === 'art' ? 'selected' : ''}>イラスト</option>
+                <option value="text" ${it.mode === 'text' ? 'selected' : ''}>絵文字/文字</option>
+              </select>
+              <input data-idx="${idx}" data-field="text" type="text" maxlength="8" value="${String(it.text).replace(/"/g, '&quot;')}" placeholder="絵文字/文字" class="tier-input bg-white border border-[#D8A468] rounded-lg px-2 py-1 text-center font-extrabold" />
+              <label class="flex flex-col gap-0.5">
+                <span class="text-[10px] text-[#8B5A2B]">名前 / 大きさ: <b>${it.radius}px</b></span>
+                <div class="flex gap-1">
+                  <input data-idx="${idx}" data-field="name" type="text" maxlength="12" value="${String(it.name).replace(/"/g, '&quot;')}" class="tier-input w-20 bg-white border border-[#D8A468] rounded-lg px-1.5 py-0.5 text-[11px]" />
+                  <input data-idx="${idx}" data-field="radius" type="range" min="10" max="130" step="1" value="${it.radius}" class="tier-input flex-1 accent-[#FF6B2B]" />
+                </div>
+              </label>
+              <label class="flex flex-col gap-0.5">
+                <span class="text-[10px] text-[#8B5A2B]">当たり判定: <b>${Math.round((it.hitboxScale || 1) * 100)}%</b></span>
+                <input data-idx="${idx}" data-field="hitboxScale" type="range" min="0.5" max="1.3" step="0.05" value="${it.hitboxScale || 1}" class="tier-input accent-[#FF6B2B]" />
+              </label>
+              <label class="flex flex-col gap-0.5">
+                <span class="text-[10px] text-[#8B5A2B]">密度: <b>${Number(it.density || 1).toFixed(1)}x</b> (重さ:${areaWeight})</span>
+                <input data-idx="${idx}" data-field="density" type="range" min="0.2" max="3.0" step="0.1" value="${it.density || 1}" class="tier-input accent-[#FF6B2B]" />
+              </label>
+            </div>
+          `;
+        }).join('');
+      }
+
+      tierEditorList.addEventListener('input', (e) => {
+        const el = e.target;
+        if (!el.classList.contains('tier-input')) return;
+        const idx = parseInt(el.dataset.idx, 10);
+        const field = el.dataset.field;
+        const item = draftConfig.items[idx];
+        if (field === 'radius' || field === 'hitboxScale' || field === 'density') {
+          item[field] = parseFloat(el.value);
+          // Re-render only labels cleanly by refreshing row or whole list on change
+          const card = el.closest('div.grid');
+          if (card) {
+            const spans = card.querySelectorAll('span.text-\\[10px\\]');
+            const hr = Math.max(8, item.radius * (item.hitboxScale || 1));
+            const areaWeight = Math.round((Math.PI * hr * hr * (item.density || 1)) / 10);
+            if (spans[0]) spans[0].innerHTML = `名前 / 大きさ: <b>${item.radius}px</b>`;
+            if (spans[1]) spans[1].innerHTML = `当たり判定: <b>${Math.round((item.hitboxScale || 1) * 100)}%</b>`;
+            if (spans[2]) spans[2].innerHTML = `密度: <b>${Number(item.density || 1).toFixed(1)}x</b> (重さ:${areaWeight})`;
+          }
+        } else {
+          item[field] = el.value;
+        }
+      });
+
+      cfgGravity.addEventListener('input', () => {
+        draftConfig.gravity = parseFloat(cfgGravity.value);
+        cfgGravityVal.textContent = draftConfig.gravity.toFixed(2);
+      });
+      cfgRestitution.addEventListener('input', () => {
+        draftConfig.restitution = parseFloat(cfgRestitution.value);
+        cfgRestitutionVal.textContent = draftConfig.restitution.toFixed(2);
+      });
+      cfgFriction.addEventListener('input', () => {
+        draftConfig.friction = parseFloat(cfgFriction.value);
+        cfgFrictionVal.textContent = draftConfig.friction.toFixed(2);
+      });
+      cfgCooldown.addEventListener('input', () => {
+        draftConfig.dropCooldown = parseFloat(cfgCooldown.value);
+        cfgCooldownVal.textContent = draftConfig.dropCooldown.toFixed(2) + '秒';
+      });
+
+      const PRESETS = {
+        classic: () => DEFAULT_ITEMS.map((it) => ({ ...it, mode: 'art' })),
+        emoji: () => DEFAULT_ITEMS.map((it) => ({ ...it, mode: 'text' })),
+        kanji: () => {
+          const chars = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '終'];
+          return DEFAULT_ITEMS.map((it, i) => ({ ...it, mode: 'text', text: chars[i], name: chars[i] }));
+        },
+        space: () => {
+          const icons = ['☄️', '🌙', '🪨', '🌍', '🔴', '🟠', '🟡', '🔵', '🟣', '🪐', '☀️'];
+          const names = ['彗星', '月', '小惑星', '地球', '火星', '金星', '土星衛星', '海王星', '天王星', '土星', '太陽'];
+          return DEFAULT_ITEMS.map((it, i) => ({ ...it, mode: 'text', text: icons[i], name: names[i] }));
+        }
+      };
+
+      document.querySelectorAll('.preset-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const p = btn.dataset.preset;
+          if (PRESETS[p]) {
+            draftConfig.items = PRESETS[p]();
+            renderCustomEditor();
+          }
+        });
+      });
+
+      document.getElementById('custom-btn').addEventListener('click', () => {
+        draftConfig = JSON.parse(JSON.stringify(config));
+        renderCustomEditor();
+        customModal.classList.remove('hidden');
+      });
+
+      document.getElementById('close-custom-btn').addEventListener('click', () => customModal.classList.add('hidden'));
+      document.getElementById('cancel-custom-btn').addEventListener('click', () => customModal.classList.add('hidden'));
+
+      document.getElementById('reset-custom-btn').addEventListener('click', () => {
+        draftConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+        renderCustomEditor();
+      });
+
+      document.getElementById('apply-custom-btn').addEventListener('click', () => {
+        draftConfig.rotationEnabled = cfgRotation.checked;
+        draftConfig.showFutureSim = cfgFuture.checked;
+        draftConfig.showHitboxRing = cfgHitboxRing.checked;
+        draftConfig.mergeAnim = cfgMergeAnim.value;
+        config = JSON.parse(JSON.stringify(draftConfig));
+        FRUITS = config.items;
+        saveConfig();
+
+        // Update existing fruits in box with new radii & area-based mass
+        for (const b of fruits) {
+          b.radius = getHitRadius(b.tier);
+          b.mass = getAreaMass(b.tier);
+          b.inertia = 0.5 * b.mass * b.radius * b.radius;
+        }
+        aimX = clampAimX(aimX, currentTier);
+        renderNextPreviews();
+        renderEvolutionRing();
+        customModal.classList.add('hidden');
+      });
+
+      // =========================================================
+      // 8. Input Handling, Epic BGM, & Evo Ring Inspection
+      // =========================================================
+      function getBoardXFromPointer(clientX) {
+        const rect = canvas.getBoundingClientRect();
+        const normX = (clientX - rect.left) / rect.width;
+        return clampAimX(normX * BOARD_W, currentTier);
+      }
+
+      let isPointerDown = false;
+
+      canvas.addEventListener('pointerdown', (e) => {
+        if (isGameOver) return;
+        ensureAudio();
+        isPointerDown = true;
+        aimX = getBoardXFromPointer(e.clientX);
+      });
+
+      canvas.addEventListener('pointermove', (e) => {
+        if (isGameOver) return;
+        if (e.pointerType === 'mouse' || isPointerDown) {
+          aimX = getBoardXFromPointer(e.clientX);
+        }
+      });
+
+      window.addEventListener('pointerup', (e) => {
+        if (!isPointerDown) return;
+        isPointerDown = false;
+        if (!isGameOver && e.target === canvas) {
+          aimX = getBoardXFromPointer(e.clientX);
+          dropCurrentFruit();
+        }
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (!customModal.classList.contains('hidden')) return;
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+          keysHeld.left = true;
+        } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+          keysHeld.right = true;
+        } else if (e.key === ' ' || e.key === 'ArrowDown' || e.key === 'Enter') {
+          if (document.getElementById('help-modal').classList.contains('hidden') && !isGameOver) {
+            e.preventDefault();
+            dropCurrentFruit();
+          }
+        } else if (e.key === 'r' || e.key === 'R') {
+          initGame();
+        } else if (e.key === 'm' || e.key === 'M') {
+          toggleMute();
+        }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keysHeld.left = false;
+        if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keysHeld.right = false;
+      });
+
+      const btnLeft = document.getElementById('btn-left');
+      const btnRight = document.getElementById('btn-right');
+      const btnDrop = document.getElementById('btn-drop');
+
+      btnLeft.addEventListener('pointerdown', () => { keysHeld.left = true; });
+      btnLeft.addEventListener('pointerup', () => { keysHeld.left = false; });
+      btnLeft.addEventListener('pointerleave', () => { keysHeld.left = false; });
+      btnRight.addEventListener('pointerdown', () => { keysHeld.right = true; });
+      btnRight.addEventListener('pointerup', () => { keysHeld.right = false; });
+      btnRight.addEventListener('pointerleave', () => { keysHeld.right = false; });
+      btnDrop.addEventListener('click', () => dropCurrentFruit());
+
+      const muteBtn = document.getElementById('mute-btn');
+      const muteIcon = document.getElementById('mute-icon');
+      const muteLabel = document.getElementById('mute-label');
+      const bgmBtn = document.getElementById('bgm-btn');
+      const bgmIcon = document.getElementById('bgm-icon');
+      const bgmLabel = document.getElementById('bgm-label');
+      let bgmEnabled = false;
+      let bgmTimer = null;
+      let bgmStep = 0;
+
+      // 5-Minute (160 bars = 1280 steps * 235ms = 300.8s) Evolving Multi-Key Symphonic Composition
+      const CHORDS = {
+        Dm:  { bass: 146.83, pad: [293.66, 349.23, 440.00], scale: [587.33, 659.25, 698.46, 880.00, 1046.50, 1174.66] },
+        Bb:  { bass: 116.54, pad: [233.08, 293.66, 349.23], scale: [466.16, 587.33, 698.46, 880.00, 932.33, 1174.66] },
+        F:   { bass: 174.61, pad: [349.23, 440.00, 523.25], scale: [523.25, 659.25, 698.46, 880.00, 1046.50, 1396.91] },
+        C:   { bass: 130.81, pad: [261.63, 329.63, 392.00], scale: [523.25, 587.33, 659.25, 783.99, 1046.50, 1318.51] },
+        Gm:  { bass: 196.00, pad: [392.00, 466.16, 587.33], scale: [587.33, 698.46, 783.99, 932.33, 1174.66, 1396.91] },
+        A:   { bass: 110.00, pad: [220.00, 277.18, 329.63], scale: [554.37, 659.25, 880.00, 1108.73, 1318.51, 1396.91] },
+        Am:  { bass: 110.00, pad: [220.00, 261.63, 329.63], scale: [523.25, 659.25, 783.99, 880.00, 1046.50, 1318.51] },
+        Eb:  { bass: 155.56, pad: [311.13, 392.00, 466.16], scale: [622.25, 783.99, 932.33, 1174.66, 1244.51, 1567.98] },
+        G:   { bass: 196.00, pad: [246.94, 293.66, 392.00], scale: [587.33, 659.25, 783.99, 987.77, 1174.66, 1567.98] },
+        Em:  { bass: 164.81, pad: [246.94, 329.63, 392.00], scale: [659.25, 783.99, 987.77, 1174.66, 1318.51, 1567.98] },
+        D:   { bass: 146.83, pad: [293.66, 369.99, 440.00], scale: [587.33, 739.99, 880.00, 1174.66, 1479.98, 1760.00] },
+        Bm:  { bass: 123.47, pad: [246.94, 293.66, 369.99], scale: [587.33, 739.99, 987.77, 1174.66, 1479.98, 1661.22] }
+      };
+
+      // 20 distinct 8-bar sections (160 bars total = 300.8 seconds = 5:00!)
+      const SECTIONS = [
+        { name: '序章: 夜明け',     bars: ['Dm','Dm','Bb','Bb','F','C','Dm','A'],   inten: 0.38, style: 'piano',  contour: [0,2,4,3,2,1,0,3] },
+        { name: '第1章: 旅立ち',    bars: ['Dm','C','Bb','F','Gm','Dm','Bb','A'],   inten: 0.55, style: 'strings',contour: [2,3,4,5,3,2,4,1] },
+        { name: '第1章: 希望の風',  bars: ['F','C','Dm','Bb','F','C','Bb','C'],     inten: 0.68, style: 'brass',  contour: [0,3,5,4,3,2,4,5] },
+        { name: '第2章: 陽だまり',  bars: ['F','Am','Bb','C','Dm','Bb','Gm','C'],   inten: 0.62, style: 'harp',   contour: [4,2,3,1,5,3,2,4] },
+        { name: '第2章: 駆け抜ける',bars: ['Dm','Bb','C','F','Gm','Dm','Eb','A'],   inten: 0.78, style: 'march',  contour: [1,4,2,5,3,4,2,5] },
+        { name: '第3章: 運命の扉',  bars: ['Gm','Eb','Bb','F','Gm','Dm','Eb','D'],  inten: 0.85, style: 'storm',  contour: [2,5,4,3,5,2,4,5] },
+        { name: '第3章: 転調の光',  bars: ['G','D','Em','Bm','C','G','Am','D'],     inten: 0.88, style: 'brass',  contour: [0,2,4,5,3,4,2,5] },
+        { name: '第4章: 星空の休息',bars: ['Em','C','G','D','Em','Bm','C','D'],     inten: 0.45, style: 'bell',   contour: [5,3,2,4,1,3,2,0] },
+        { name: '第4章: 静かな祈り',bars: ['Am','F','C','G','Dm','Am','Bb','A'],    inten: 0.42, style: 'piano',  contour: [3,1,4,2,0,2,3,1] },
+        { name: '第5章: 再起の鼓動',bars: ['Dm','Bb','Gm','A','Dm','F','Bb','C'],   inten: 0.70, style: 'march',  contour: [0,1,2,3,4,3,4,5] },
+        { name: '第5章: 栄光の行進',bars: ['F','C','Dm','Am','Bb','F','Gm','C'],    inten: 0.82, style: 'brass',  contour: [2,4,5,3,4,5,3,5] },
+        { name: '第6章: 嵐を越えて',bars: ['Gm','F','Eb','Bb','Cm' in CHORDS ? 'Cm':'Gm','Dm','Eb','A'], inten: 0.90, style: 'storm', contour: [5,4,3,5,2,4,5,3] },
+        { name: '第6章: 黄金の果実',bars: ['D','A','Bm','G','Em','A','D','A'],      inten: 0.86, style: 'brass',  contour: [1,3,5,4,2,4,5,3] },
+        { name: '第7章: 蒼き海原',  bars: ['G','Em','C','D','Bm','Em','Am','D'],    inten: 0.74, style: 'strings',contour: [0,3,2,4,5,3,1,4] },
+        { name: '第7章: 遥かな空',  bars: ['Eb','Bb','Gm','F','Eb','Bb','C','F'],   inten: 0.76, style: 'harp',   contour: [2,4,5,3,1,3,4,5] },
+        { name: '第8章: 決戦前夜',  bars: ['Dm','Eb','Dm','A','Gm','Dm','Bb','A'],  inten: 0.65, style: 'piano',  contour: [4,2,5,1,3,2,4,0] },
+        { name: '終章: 大進撃',     bars: ['Dm','Bb','F','C','Gm','Dm','Bb','A'],   inten: 0.94, style: 'march',  contour: [0,2,4,5,3,5,4,5] },
+        { name: '終章: 奇跡の輝き',bars: ['F','C','Dm','Bb','F','C','D','G'],      inten: 0.96, style: 'brass',  contour: [2,4,5,4,5,3,5,5] },
+        { name: '終章: 大団円',     bars: ['G','D','Em','C','G','D','C','D'],       inten: 1.00, style: 'finale', contour: [3,5,4,5,4,5,3,5] },
+        { name: '終章: 余韻',       bars: ['G','Em','C','D','Em','C','D','G'],      inten: 0.58, style: 'bell',   contour: [5,4,3,2,4,2,1,0] }
+      ];
+
+      function playBgmTick() {
+        if (!bgmEnabled || isMuted) return;
+        ensureAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const totalSteps = 1280; // 160 bars * 8 steps = 1280 steps (~300.8s)
+        const sIdx = bgmStep % totalSteps;
+        bgmStep++;
+
+        const barGlobal = Math.floor(sIdx / 8);
+        const secIdx = Math.floor(barGlobal / 8) % SECTIONS.length;
+        const sec = SECTIONS[secIdx];
+        const barInSec = barGlobal % 8;
+        const beat = sIdx % 8;
+        const chordName = sec.bars[barInSec];
+        const chord = CHORDS[chordName] || CHORDS.Dm;
+        const inten = sec.inten;
+
+        // Update live timer & section on BGM button
+        const secElapsed = Math.floor((sIdx * 0.235));
+        const mm = String(Math.floor(secElapsed / 60)).padStart(2, '0');
+        const ss = String(secElapsed % 60).padStart(2, '0');
+        bgmLabel.textContent = `${mm}:${ss} ${sec.name.split(':')[0]}`;
+
+        // 1. Bass & Timpani (rhythmic pattern varies by section style)
+        const bassPattern = sec.style === 'march' || sec.style === 'storm' || sec.style === 'finale'
+          ? [1, 0, 1, 1, 1, 0, 1, 1]
+          : sec.style === 'piano' || sec.style === 'bell'
+          ? [1, 0, 0, 0, 1, 0, 0, 0]
+          : [1, 0, 0, 1, 1, 0, 1, 0];
+
+        if (bassPattern[beat]) {
+          const bassOsc = audioCtx.createOscillator();
+          const bassFilter = audioCtx.createBiquadFilter();
+          const bassGain = audioCtx.createGain();
+          bassOsc.type = inten > 0.65 ? 'sawtooth' : 'triangle';
+          bassOsc.frequency.setValueAtTime(beat === 0 ? chord.bass * 0.5 : chord.bass, now);
+          bassFilter.type = 'lowpass';
+          bassFilter.frequency.setValueAtTime(220 + inten * 320, now);
+          bassGain.gain.setValueAtTime((beat === 0 ? 0.08 : 0.045) * inten, now);
+          bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.21);
+          bassOsc.connect(bassFilter);
+          bassFilter.connect(bassGain);
+          bassGain.connect(audioCtx.destination);
+          bassOsc.start(now);
+          bassOsc.stop(now + 0.22);
+        }
+
+        // 2. Warm String Pad on bar start
+        if (beat === 0) {
+          chord.pad.forEach((pFreq) => {
+            const padOsc = audioCtx.createOscillator();
+            const padFilter = audioCtx.createBiquadFilter();
+            const padGain = audioCtx.createGain();
+            padOsc.type = 'sawtooth';
+            padOsc.frequency.setValueAtTime(pFreq, now);
+            padFilter.type = 'lowpass';
+            padFilter.frequency.setValueAtTime(650 + inten * 700, now);
+            padGain.gain.setValueAtTime(0.002, now);
+            padGain.gain.linearRampToValueAtTime(0.016 * inten, now + 0.45);
+            padGain.gain.exponentialRampToValueAtTime(0.001, now + 1.82);
+            padOsc.connect(padFilter);
+            padFilter.connect(padGain);
+            padGain.connect(audioCtx.destination);
+            padOsc.start(now);
+            padOsc.stop(now + 1.86);
+          });
+        }
+
+        // 3. Harp / Piano Arpeggio (varies direction per bar)
+        const arpIdx = barInSec % 2 === 0 ? beat % chord.scale.length : (chord.scale.length - 1 - (beat % chord.scale.length));
+        const arpOsc = audioCtx.createOscillator();
+        const arpGain = audioCtx.createGain();
+        arpOsc.type = 'triangle';
+        arpOsc.frequency.setValueAtTime(chord.scale[arpIdx] * 0.5, now);
+        arpGain.gain.setValueAtTime(0.02 * (1.05 - inten * 0.15), now);
+        arpGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.24);
+        arpOsc.connect(arpGain);
+        arpGain.connect(audioCtx.destination);
+        arpOsc.start(now);
+        arpOsc.stop(now + 0.26);
+
+        // 4. Expressive Phrase-Based Lead Melody (unique per bar & contour!)
+        const rhythmMask = (barInSec % 4 === 3)
+          ? [1, 0, 1, 0, 1, 0, 0, 0] // cadence breath at end of 4-bar phrase
+          : (sec.style === 'finale' || sec.style === 'brass' || sec.style === 'storm')
+          ? [1, 0, 1, 1, 1, 0, 1, 1]
+          : [1, 0, 0, 1, 1, 0, 1, 0];
+
+        if (rhythmMask[beat]) {
+          const baseDegree = sec.contour[barInSec];
+          const stepOffset = [0, 1, 2, 1, 3, 2, 1, 0][beat];
+          const noteIdx = (baseDegree + stepOffset) % chord.scale.length;
+          const melFreq = chord.scale[noteIdx];
+
+          const leadOsc = audioCtx.createOscillator();
+          const leadFilter = audioCtx.createBiquadFilter();
+          const leadGain = audioCtx.createGain();
+          leadOsc.type = (sec.style === 'brass' || sec.style === 'finale' || sec.style === 'march') ? 'sawtooth' : 'triangle';
+          leadOsc.frequency.setValueAtTime(melFreq, now);
+          leadFilter.type = 'lowpass';
+          leadFilter.frequency.setValueAtTime(1400 + inten * 1800, now);
+          leadGain.gain.setValueAtTime(0.034 * inten + 0.01, now);
+          leadGain.gain.exponentialRampToValueAtTime(0.001, now + 0.44);
+          leadOsc.connect(leadFilter);
+          leadFilter.connect(leadGain);
+          leadGain.connect(audioCtx.destination);
+          leadOsc.start(now);
+          leadOsc.stop(now + 0.46);
+        }
+      }
+
+      function toggleBgm() {
+        bgmEnabled = !bgmEnabled;
+        bgmIcon.textContent = bgmEnabled ? '🎶' : '🎵';
+        if (!bgmEnabled) bgmLabel.textContent = '壮大BGM';
+        clearInterval(bgmTimer);
+        if (bgmEnabled) {
+          ensureAudio();
+          bgmStep = 0;
+          playBgmTick();
+          bgmTimer = setInterval(playBgmTick, 235);
+        }
+      }
+      bgmBtn.addEventListener('click', toggleBgm);
+
+      function toggleMute() {
+        isMuted = !isMuted;
+        muteIcon.textContent = isMuted ? '🔇' : '🔊';
+        muteLabel.textContent = isMuted ? 'ミュート' : '音あり';
+      }
+      muteBtn.addEventListener('click', toggleMute);
+
+      const evoCaption = document.getElementById('evo-caption');
+      function handleEvoPointer(clientX, clientY) {
+        const rect = evoCanvas.getBoundingClientRect();
+        const px = ((clientX - rect.left) / rect.width) * 232;
+        const py = ((clientY - rect.top) / rect.height) * 232;
+        const { positions } = getEvoFruitPositions(232, 232);
+        let found = null;
+        for (const p of positions) {
+          if (Math.hypot(px - p.x, py - p.y) <= p.r + 7) {
+            found = p.tier;
+            break;
+          }
+        }
+        if (found !== hoveredEvoTier) {
+          hoveredEvoTier = found;
+          renderEvolutionRing();
+          if (found !== null) {
+            const f = FRUITS[found];
+            const nextText = found < FRUITS.length - 1 ? `→ ${FRUITS[found + 1].name}` : '（最大！2個で消滅）';
+            evoCaption.textContent = `${found + 1}/11 ${f.name} (+${f.score}点) ${nextText}`;
+          } else {
+            evoCaption.textContent = 'カーソルで詳細・⚙️カスタムで自由変更';
+          }
+        }
+      }
+      evoCanvas.addEventListener('pointermove', (e) => handleEvoPointer(e.clientX, e.clientY));
+      evoCanvas.addEventListener('pointerdown', (e) => handleEvoPointer(e.clientX, e.clientY));
+      evoCanvas.addEventListener('pointerleave', () => {
+        if (hoveredEvoTier !== null) {
+          hoveredEvoTier = null;
+          renderEvolutionRing();
+          evoCaption.textContent = 'カーソルで詳細・⚙️カスタムで自由変更';
+        }
+      });
+
+      document.getElementById('restart-btn').addEventListener('click', initGame);
+      document.getElementById('modal-restart-btn').addEventListener('click', initGame);
+
+      const helpModal = document.getElementById('help-modal');
+      document.getElementById('help-btn').addEventListener('click', () => helpModal.classList.remove('hidden'));
+      document.getElementById('close-help-btn').addEventListener('click', () => helpModal.classList.add('hidden'));
+      document.getElementById('help-ok-btn').addEventListener('click', () => helpModal.classList.add('hidden'));
+
+      window.addEventListener('resize', () => {
+        resizeMainCanvas();
+      });
+
+      window.onload = function () {
+        initGame();
+      };
+    })();
+  </script>
+</body>
+</html>
